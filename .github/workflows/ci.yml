@@ -1,0 +1,17 @@
+name: Tests
+on: [push]
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  Format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make format
+      - run: git diff --exit-code
+  Check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: make ci
