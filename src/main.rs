@@ -43,113 +43,66 @@ impl<R: Read> Parser<R> {
             return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "got no data"));
         };
 
-        // an identifier can be true|false|null, which causes problems
-        // this is a hack to avoid that :)
-        let mut mistaken_identifier = None;
-
-        // file might contain a value
-        let parse_value_result = self.parse_value(next_byte, max_depth);
-        match parse_value_result {
-            Ok((value, next_byte)) => {
-                if let Some(next_byte) = next_byte
-                    && let Some(next_byte) = self.skip_whitespace(next_byte)?
-                {
-                    if next_byte != b':' {
-                        return Err(io::Error::new(
-                            ErrorKind::InvalidData,
-                            "reader did not reach EOF after first value",
-                        ));
-                    } else {
-                        // oops, that was an identifier, not a value, oopsie :p
-                        mistaken_identifier = Some(value);
-                    }
-                } else {
-                    return Ok(value);
-                }
+        // ensure buffer is filled so we can cheat
+        let buff = loop {
+            match self.reader.fill_buf() {
+                Ok(buff) => break buff,
+                Err(err) if err.kind() == ErrorKind::Interrupted => continue,
+                Err(err) => return Err(err),
             }
-            Err(err) => {
-                // if next byte is not the start of an identifier, there was actually something wrong
-                // with the value
-                if !(utils::to_char(next_byte).is_ascii_alphabetic() || next_byte == b'_') {
-                    return Err(err);
-                }
-            }
+        };
+        if buff.is_empty() {
+            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "got no data"));
         }
 
-        // file might also contain an object without curly brackets
-        let mut object = HashMap::new();
-        let mut first_byte = next_byte;
+        // we know we should parse a value if buffer does not contain a colon, or if any
+        // value before the colon is not a valid identifier
+        let is_value = if next_byte.is_ascii_alphabetic()
+            && let Some(colon_pos) = buff.iter().position(|b| *b == b':')
+        {
+            let to_colon = &buff[0..colon_pos];
+            to_colon.iter().any(|b| !b.is_ascii_alphanumeric())
+        } else {
+            true
+        };
 
-        // yay, hacks!
-        if let Some(value) = mistaken_identifier {
-            let key = match value {
-                Value::Bool(true) => "true".to_owned(),
-                Value::Bool(false) => "false".to_owned(),
-                Value::Null => "null".to_owned(),
-                _ => {
-                    return Err(io::Error::new(
-                        ErrorKind::InvalidData,
-                        format!("got invalid mistaken identifier {value:?}"),
-                    ));
-                }
-            };
+        eprintln!("{is_value}");
 
-            // skip whitespace after colon
-            let Some(next_byte) = self.read_byte()? else {
-                return Err(io::Error::new(
-                    io::ErrorKind::UnexpectedEof,
-                    "got EOF before value",
-                ));
-            };
-            let Some(next_byte) = self.skip_whitespace(next_byte)? else {
-                return Err(io::Error::new(
-                    io::ErrorKind::UnexpectedEof,
-                    "got EOF before value",
-                ));
-            };
-
+        if is_value {
             let (value, next_byte) = self.parse_value(next_byte, max_depth)?;
-            object.insert(key, value);
-
-            let Some(next_byte) = next_byte else {
-                return Ok(Value::Object(object));
-            };
-
-            let (valid_sep, next_byte) = self.parse_sep(next_byte)?;
-            let Some(next_byte) = next_byte else {
-                return Ok(Value::Object(object));
-            };
-            let Some(next_byte) = self.skip_whitespace(next_byte)? else {
-                return Ok(Value::Object(object));
-            };
-
-            if !valid_sep {
-                return Err(io::Error::new(ErrorKind::InvalidData, "invalid sep"));
-            } else {
-                first_byte = next_byte;
+            if let Some(next_byte) = next_byte
+                && self.skip_whitespace(next_byte)?.is_some()
+            {
+                return Err(io::Error::new(
+                    ErrorKind::InvalidData,
+                    "reader did not reach EOF after first value",
+                ));
             }
-        }
+            Ok(value)
+        } else {
+            let mut object = HashMap::new();
+            let mut first_byte = next_byte;
+            loop {
+                let (key, value, next_byte) = self.parse_key_value_pair(first_byte, max_depth)?;
+                object.insert(key, value);
 
-        loop {
-            let (key, value, next_byte) = self.parse_key_value_pair(first_byte, max_depth)?;
-            object.insert(key, value);
+                let Some(next_byte) = next_byte else {
+                    break Ok(Value::Object(object));
+                };
 
-            let Some(next_byte) = next_byte else {
-                return Ok(Value::Object(object));
-            };
+                let (valid_sep, next_byte) = self.parse_sep(next_byte)?;
+                let Some(next_byte) = next_byte else {
+                    break Ok(Value::Object(object));
+                };
+                let Some(next_byte) = self.skip_whitespace(next_byte)? else {
+                    break Ok(Value::Object(object));
+                };
 
-            let (valid_sep, next_byte) = self.parse_sep(next_byte)?;
-            let Some(next_byte) = next_byte else {
-                return Ok(Value::Object(object));
-            };
-            let Some(next_byte) = self.skip_whitespace(next_byte)? else {
-                return Ok(Value::Object(object));
-            };
-
-            if !valid_sep {
-                return Err(io::Error::new(ErrorKind::InvalidData, "invalid sep"));
-            } else {
-                first_byte = next_byte;
+                if !valid_sep {
+                    break Err(io::Error::new(ErrorKind::InvalidData, "invalid sep"));
+                } else {
+                    first_byte = next_byte;
+                }
             }
         }
     }
@@ -355,9 +308,9 @@ impl<R: Read> Parser<R> {
                             if byte <= b'9' {
                                 values.push(f64::from(byte - b'0'));
                             } else if byte <= b'F' {
-                                values.push(f64::from(byte - (b'A' - 9)));
+                                values.push(f64::from(byte - (b'A' - 10)));
                             } else {
-                                values.push(f64::from(byte - (b'a' - 9)));
+                                values.push(f64::from(byte - (b'a' - 10)));
                             }
                             continue;
                         } else {
