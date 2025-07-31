@@ -6,16 +6,19 @@ use std::{
     process::Command,
 };
 
+use base64::{Engine, prelude::BASE64_STANDARD};
+
 use crate::Value as MasonValue;
 use serde_json::Value as JsonValue;
 
-use crate::Parser;
+use crate::from_reader;
 
 fn run_json_tests(folder: PathBuf) -> (usize, usize) {
     let (mut tests, mut successes) = (0, 0);
 
     for file in fs::read_dir(folder).unwrap() {
         let file = file.unwrap();
+        let path = file.path();
         let name = file.file_name().into_string().unwrap();
 
         if !name.starts_with('y') && !name.starts_with('n') {
@@ -23,17 +26,17 @@ fn run_json_tests(folder: PathBuf) -> (usize, usize) {
             continue;
         }
         let should_succeed = name.starts_with('y');
-        let parse_result = Parser::new(File::open(file.path()).unwrap()).parse();
+        let parse_result = from_reader(File::open(&path).unwrap());
 
         tests += 1;
         if should_succeed && parse_result.is_err() {
             eprintln!(
-                "{file:?}: Expected success, but failed: {}",
+                "{path:?}: Expected success, but failed: {}\n",
                 parse_result.unwrap_err()
             );
         } else if !should_succeed && parse_result.is_ok() {
             eprintln!(
-                "{file:?}: Expected failure, but succeeded: {:?}",
+                "{path:?}: Expected failure, but succeeded: {:?}\n",
                 parse_result.unwrap()
             );
         } else {
@@ -49,27 +52,28 @@ fn run_mason_tests(folder: PathBuf) -> (usize, usize) {
 
     for file in fs::read_dir(folder).unwrap() {
         let file = file.unwrap();
-        if file.path().extension().unwrap() == "json" {
+        let path = file.path();
+        if path.extension().unwrap() == "json" {
             continue;
         }
 
         let name = file.file_name().into_string().unwrap();
         if !name.starts_with('y') && !name.starts_with('n') {
-            eprintln!("{file:?}: Unknown file name prefix");
+            eprintln!("{path:?}: Unknown file name prefix");
             continue;
         }
 
         tests += 1;
         if name.starts_with('y') {
-            if let Err(err) = compare_output(file.path().to_str().unwrap()) {
-                eprintln!("{file:?}: Expected success, but failed: {err}");
+            if let Err(err) = compare_output(path.to_str().unwrap()) {
+                eprintln!("{path:?}: Expected success, but failed: {err}\n");
             } else {
                 successes += 1;
             }
         } else {
             #[allow(clippy::collapsible_else_if)]
-            if let Ok(value) = Parser::new(File::open(file.path()).unwrap()).parse() {
-                eprintln!("{file:?}: Expected failure, but succeeded: {value:?}");
+            if let Ok(value) = from_reader(File::open(&path).unwrap()) {
+                eprintln!("{path:?}: Expected failure, but succeeded: {value:?}\n");
             } else {
                 successes += 1;
             }
@@ -94,7 +98,7 @@ fn deep_equals(json: &JsonValue, mason: &MasonValue) -> bool {
         }
         (JsonValue::String(string1), MasonValue::String(string2)) => string1 == string2,
         (JsonValue::String(string1), MasonValue::ByteString(string2)) => {
-            string1.as_bytes() == string2
+            *string1 == BASE64_STANDARD.encode(string2)
         }
         (JsonValue::Array(array1), MasonValue::Array(array2)) => {
             if array1.len() != array2.len() {
@@ -137,7 +141,7 @@ fn compare_output(mason_file: &str) -> io::Result<()> {
     let json_file = mason_file.replace(".mason", ".json");
 
     let json_value: JsonValue = serde_json::from_reader(File::open(json_file).unwrap()).unwrap();
-    let mason_value = Parser::new(File::open(mason_file).unwrap()).parse()?;
+    let mason_value = from_reader(File::open(mason_file).unwrap())?;
 
     if deep_equals(&json_value, &mason_value) {
         Ok(())
@@ -173,14 +177,15 @@ fn test_parser() {
     }
 
     let (mut total_tests, mut total_successes) = (0, 0);
-    for json_test in ["alt-json-suite", "json-suite"] {
+    #[allow(clippy::single_element_loop)]
+    for json_test in ["json-suite"] {
         let folder = Path::new("mason/test-suite").join(json_test);
         let (tests, successes) = run_json_tests(folder);
         total_tests += tests;
         total_successes += successes;
     }
-    {
-        let folder = Path::new("mason/test-suite").join("mason-suite");
+    for mason_test in ["alt-json-suite", "mason-suite"] {
+        let folder = Path::new("mason/test-suite").join(mason_test);
         let (tests, successes) = run_mason_tests(folder);
         total_tests += tests;
         total_successes += successes;

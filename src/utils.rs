@@ -1,31 +1,15 @@
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Read};
+
+use crate::buf_buf_reader::BufBufReader;
 
 pub fn to_char(byte: u8) -> char {
     // Safety: all u8's are valid chars
     unsafe { char::from_u32_unchecked(byte.into()) }
 }
 
-pub fn read_pattern(reader: &mut impl BufRead, pattern: &[u8]) -> io::Result<()> {
-    for b in pattern {
-        let Some(next) = read_byte(reader)? else {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "pattern not found",
-            ));
-        };
-        if next != *b {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "pattern not found",
-            ));
-        }
-    }
-    Ok(())
-}
-
 /// Read from `reader` until a not-escaped quote is reached. The final quote is read
 /// but not returned.
-pub fn read_until_unquote(reader: &mut impl BufRead) -> io::Result<Vec<u8>> {
+pub fn read_until_unquote<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<Vec<u8>> {
     let mut value = Vec::new();
     let mut buff = Vec::new();
     loop {
@@ -35,7 +19,7 @@ pub fn read_until_unquote(reader: &mut impl BufRead) -> io::Result<Vec<u8>> {
             value.append(&mut buff);
         } else {
             // quote is not escaped, remove it from buff and break
-            if buff.pop().is_none() {
+            if buff.pop().is_none_or(|end| end != b'"') {
                 return Err(io::Error::new(
                     io::ErrorKind::UnexpectedEof,
                     "found no unquote",
@@ -51,7 +35,10 @@ pub fn read_until_unquote(reader: &mut impl BufRead) -> io::Result<Vec<u8>> {
 
 /// Read from `reader` until a specified pattern (string of bytes) is reached. The pattern is read
 /// but not returned.
-pub fn read_until_pattern(reader: &mut impl BufRead, pattern: &[u8]) -> io::Result<Vec<u8>> {
+pub fn read_until_pattern<R: Read>(
+    reader: &mut BufBufReader<R>,
+    pattern: &[u8],
+) -> io::Result<Vec<u8>> {
     if pattern.is_empty() {
         return Ok(Vec::new());
     }
@@ -70,7 +57,7 @@ pub fn read_until_pattern(reader: &mut impl BufRead, pattern: &[u8]) -> io::Resu
 
         let mut correct_chars = 1;
         while correct_chars < pattern.len() {
-            let Some(next) = read_byte(reader)? else {
+            let Some(next) = reader.read_byte()? else {
                 return Err(io::Error::new(
                     io::ErrorKind::UnexpectedEof,
                     "pattern not found",
@@ -90,20 +77,6 @@ pub fn read_until_pattern(reader: &mut impl BufRead, pattern: &[u8]) -> io::Resu
                 value.pop();
             }
             return Ok(value);
-        }
-    }
-}
-
-pub fn read_byte(reader: &mut impl BufRead) -> io::Result<Option<u8>> {
-    let mut buff = [0];
-    match reader.read_exact(&mut buff) {
-        Ok(()) => Ok(Some(buff[0])),
-        Err(err) => {
-            if err.kind() == io::ErrorKind::UnexpectedEof {
-                Ok(None)
-            } else {
-                Err(err)
-            }
         }
     }
 }
