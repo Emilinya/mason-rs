@@ -1,6 +1,6 @@
-[![Tests](https://github.com/Emilinya/mason_parser/actions/workflows/ci.yml/badge.svg)](https://github.com/Emilinya/mason_parser/actions/workflows/ci.yml)
+[![Tests](https://github.com/Emilinya/mason-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/Emilinya/mason-rs/actions/workflows/ci.yml)
 
-# mason_parser: MASON implementation for rust
+# mason-rs: MASON implementation for rust
 
 This is a rust implementation of [MASON](https://github.com/mortie/mason),
 a JSON-like object notation.
