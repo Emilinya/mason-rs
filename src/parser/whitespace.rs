@@ -1,6 +1,6 @@
 use std::io::{self, BufRead, Read};
 
-use crate::{buf_buf_reader::BufBufReader, utils};
+use crate::buf_buf_reader::BufBufReader;
 
 pub fn skip_whitespace<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<()> {
     loop {
@@ -14,24 +14,21 @@ pub fn skip_whitespace<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<()> 
                 reader.consume(1);
                 continue;
             }
-            b'/' => reader.consume(1),
+            b'/' => {}
             _ => return Ok(()),
         };
 
-        let Some(next_byte) = reader.peak()? else {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "invalid whitespace: '/'",
-            ));
+        let Some([_, next_byte]) = reader.peak2()? else {
+            return Ok(());
         };
 
         match next_byte {
             b'/' => {
-                reader.consume(1);
+                reader.consume(2);
                 reader.skip_until(b'\n')?;
             }
             b'*' => {
-                reader.consume(1);
+                reader.consume(2);
                 loop {
                     reader.skip_until(b'*')?;
                     let Some(next_byte) = reader.read_byte()? else {
@@ -45,28 +42,12 @@ pub fn skip_whitespace<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<()> 
                     }
                 }
             }
-            _ => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!(
-                        "invalid whitespace: '/{0}' (char={0:?})",
-                        utils::to_char(next_byte)
-                    ),
-                ));
-            }
+            _ => return Ok(()),
         };
     }
 }
 
 pub fn parse_sep<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<bool> {
-    let eof_err = io::Error::new(io::ErrorKind::UnexpectedEof, "got EOF while parsing sep");
-    let sep_err = |byte| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("invalid sep: '/{0}' (char={0:?})", utils::to_char(byte)),
-        )
-    };
-
     // parse space
     loop {
         let Some(next_byte) = reader.peak()? else {
@@ -78,24 +59,29 @@ pub fn parse_sep<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<bool> {
                 reader.consume(1);
             }
             b'/' => {
-                reader.consume(1);
-                let Some(byte) = reader.read_byte()? else {
-                    return Err(eof_err);
+                let Some([_, next_byte]) = reader.peak2()? else {
+                    return Ok(false);
                 };
-                match byte {
+                match next_byte {
                     b'/' => {
                         // a line comment contains a newline,
                         // and is therefore a valid sep
+                        reader.consume(2);
                         reader.skip_until(b'\n')?;
                         return Ok(true);
                     }
-                    b'*' => {}
-                    _ => return Err(sep_err(byte)),
+                    b'*' => {
+                        reader.consume(2);
+                    }
+                    _ => return Ok(false),
                 }
                 loop {
                     reader.skip_until(b'*')?;
                     let Some(byte) = reader.read_byte()? else {
-                        return Err(eof_err);
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "unclosed block comment",
+                        ));
                     };
                     if byte == b'/' {
                         break;
