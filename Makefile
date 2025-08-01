@@ -30,6 +30,10 @@ check:
 lint:
 	$(SILENCE)cargo clippy -- -W clippy::use_self $(CLIPPY_OPTS)
 
+.PHONY: coverage
+coverage:
+	$(SILENCE)cargo +nightly llvm-cov --doctests --open
+
 .PHONY: ci
 ci:
 	$(SILENCE)make format
