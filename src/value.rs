@@ -24,9 +24,9 @@ impl Value {
     /// Return a string description of the `Value`.
     ///
     /// ```
-    /// # use mason::Value;
+    /// # use mason_rs::Value;
     /// #
-    /// let value = mason::from_string(r#"{a: 2, b: false}"#).unwrap();
+    /// let value = mason_rs::from_string(r#"{a: 2, b: false}"#).unwrap();
     /// assert_eq!(value.value_type(), "object");
     /// assert_eq!(value["a"].value_type(), "number");
     /// assert_eq!(value["b"].value_type(), "boolean");
@@ -53,12 +53,12 @@ impl Value {
     /// or the given index is not within the bounds of the array.
     ///
     /// ```
-    /// # use mason::Value;
+    /// # use mason_rs::Value;
     /// #
-    /// let object = mason::from_string(r#"{ "A": 65, "B": 66, "C": 67 }"#).unwrap();
+    /// let object = mason_rs::from_string(r#"{ "A": 65, "B": 66, "C": 67 }"#).unwrap();
     /// assert_eq!(*object.get("A").unwrap(), Value::Number(65.0));
     ///
-    /// let array = mason::from_string(r#"[ "A", "B", "C" ]"#).unwrap();
+    /// let array = mason_rs::from_string(r#"[ "A", "B", "C" ]"#).unwrap();
     /// assert_eq!(*array.get(2).unwrap(), Value::String("C".into()));
     ///
     /// assert_eq!(array.get("A"), None);
@@ -69,9 +69,9 @@ impl Value {
     /// `None`.
     ///
     /// ```
-    /// # use mason::Value;
+    /// # use mason_rs::Value;
     /// #
-    /// let object = mason::from_string(r#"{
+    /// let object = mason_rs::from_string(r#"{
     ///     "A": ["a", "á", "à"],
     ///     "B": ["b", "b́"],
     ///     "C": ["c", "ć", "ć̣", "ḉ"],
@@ -95,12 +95,12 @@ impl Value {
     /// or the given index is not within the bounds of the array.
     ///
     /// ```
-    /// # use mason::Value;
+    /// # use mason_rs::Value;
     /// #
-    /// let mut object = mason::from_string(r#"{ "A": 65, "B": 66, "C": 67 }"#).unwrap();
+    /// let mut object = mason_rs::from_string(r#"{ "A": 65, "B": 66, "C": 67 }"#).unwrap();
     /// *object.get_mut("A").unwrap() = Value::Number(69.0);
     ///
-    /// let mut array = mason::from_string(r#"[ "A", "B", "C" ]"#).unwrap();
+    /// let mut array = mason_rs::from_string(r#"[ "A", "B", "C" ]"#).unwrap();
     /// *array.get_mut(2).unwrap() = Value::String("D".into());
     /// ```
     pub fn get_mut<I: Index>(&mut self, index: I) -> Option<&mut Self> {
@@ -113,7 +113,7 @@ impl Value {
     /// `as_object_mut` are guaranteed to return the hashmap representing the object.
     ///
     /// ```
-    /// let obj = mason::from_string(r#"{ "a": { "nested": true }, "b": ["an", "array"] }"#).unwrap();
+    /// let obj = mason_rs::from_string(r#"{ "a": { "nested": true }, "b": ["an", "array"] }"#).unwrap();
     ///
     /// assert!(obj.is_object());
     /// assert!(obj["a"].is_object());
@@ -129,7 +129,7 @@ impl Value {
     /// otherwise.
     ///
     /// ```
-    /// let v = mason::from_string(r#"{ "a": { "nested": true }, "b": ["an", "array"] }"#).unwrap();
+    /// let v = mason_rs::from_string(r#"{ "a": { "nested": true }, "b": ["an", "array"] }"#).unwrap();
     ///
     /// // The length of `{"nested": true}` is 1 entry.
     /// assert_eq!(v["a"].as_object().unwrap().len(), 1);
@@ -148,10 +148,10 @@ impl Value {
     /// Returns None otherwise.
     ///
     /// ```
-    /// let mut v = mason::from_string(r#"{ "a": { "nested": true } }"#).unwrap();
+    /// let mut v = mason_rs::from_string(r#"{ "a": { "nested": true } }"#).unwrap();
     ///
     /// v["a"].as_object_mut().unwrap().clear();
-    /// assert_eq!(v, mason::from_string(r#"{ "a": {} }"#).unwrap());
+    /// assert_eq!(v, mason_rs::from_string(r#"{ "a": {} }"#).unwrap());
     /// ```
     pub fn as_object_mut(&mut self) -> Option<&mut HashMap<String, Self>> {
         match self {
@@ -167,7 +167,7 @@ impl Value {
     /// array.
     ///
     /// ```
-    /// let obj = mason::from_string(r#"{ "a": ["an", "array"], "b": { "an": "object" } }"#).unwrap();
+    /// let obj = mason_rs::from_string(r#"{ "a": ["an", "array"], "b": { "an": "object" } }"#).unwrap();
     ///
     /// assert!(obj["a"].is_array());
     ///
@@ -182,7 +182,7 @@ impl Value {
     /// otherwise.
     ///
     /// ```
-    /// let v = mason::from_string(r#"{ "a": ["an", "array"], "b": { "an": "object" } }"#).unwrap();
+    /// let v = mason_rs::from_string(r#"{ "a": ["an", "array"], "b": { "an": "object" } }"#).unwrap();
     ///
     /// // The length of `["an", "array"]` is 2 elements.
     /// assert_eq!(v["a"].as_array().unwrap().len(), 2);
@@ -201,10 +201,10 @@ impl Value {
     /// Returns None otherwise.
     ///
     /// ```
-    /// let mut v = mason::from_string(r#"{ "a": ["an", "array"] }"#).unwrap();
+    /// let mut v = mason_rs::from_string(r#"{ "a": ["an", "array"] }"#).unwrap();
     ///
     /// v["a"].as_array_mut().unwrap().clear();
-    /// assert_eq!(v, mason::from_string(r#"{ "a": [] }"#).unwrap());
+    /// assert_eq!(v, mason_rs::from_string(r#"{ "a": [] }"#).unwrap());
     /// ```
     pub fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
         match self {
@@ -219,7 +219,7 @@ impl Value {
     /// to return the string slice.
     ///
     /// ```
-    /// let v = mason::from_string(r#"{ "a": "some string", "b": false }"#).unwrap();
+    /// let v = mason_rs::from_string(r#"{ "a": "some string", "b": false }"#).unwrap();
     ///
     /// assert!(v["a"].is_string());
     ///
@@ -234,7 +234,7 @@ impl Value {
     /// otherwise.
     ///
     /// ```
-    /// let v = mason::from_string(r#"{ "a": "some string", "b": false }"#).unwrap();
+    /// let v = mason_rs::from_string(r#"{ "a": "some string", "b": false }"#).unwrap();
     ///
     /// assert_eq!(v["a"].as_str(), Some("some string"));
     ///
@@ -251,7 +251,7 @@ impl Value {
     /// Returns true if the `Value` is a Number. Returns false otherwise.
     ///
     /// ```
-    /// let v = mason::from_string(r#"{ "a": 1, "b": "2" }"#).unwrap();
+    /// let v = mason_rs::from_string(r#"{ "a": 1, "b": "2" }"#).unwrap();
     ///
     /// assert!(v["a"].is_number());
     ///
@@ -266,7 +266,7 @@ impl Value {
     /// None otherwise.
     ///
     /// ```
-    /// let v = mason::from_string(r#"{ "a": 1, "b": "2" }"#).unwrap();
+    /// let v = mason_rs::from_string(r#"{ "a": 1, "b": "2" }"#).unwrap();
     ///
     /// assert_eq!(v["a"].as_number(), Some(&1.0));
     ///
@@ -286,7 +286,7 @@ impl Value {
     /// guaranteed to return the boolean value.
     ///
     /// ```
-    /// let v = mason::from_string(r#"{ "a": false, "b": "false" }"#).unwrap();
+    /// let v = mason_rs::from_string(r#"{ "a": false, "b": "false" }"#).unwrap();
     ///
     /// assert!(v["a"].is_boolean());
     ///
@@ -301,7 +301,7 @@ impl Value {
     /// otherwise.
     ///
     /// ```
-    /// let v = mason::from_string(r#"{ "a": false, "b": "false" }"#).unwrap();
+    /// let v = mason_rs::from_string(r#"{ "a": false, "b": "false" }"#).unwrap();
     ///
     /// assert_eq!(v["a"].as_bool(), Some(false));
     ///
@@ -321,7 +321,7 @@ impl Value {
     /// to return `Some(())`.
     ///
     /// ```
-    /// let v = mason::from_string(r#"{ "a": null, "b": false }"#).unwrap();
+    /// let v = mason_rs::from_string(r#"{ "a": null, "b": false }"#).unwrap();
     ///
     /// assert!(v["a"].is_null());
     ///
@@ -335,7 +335,7 @@ impl Value {
     /// If the `Value` is a Null, returns (). Returns None otherwise.
     ///
     /// ```
-    /// let v = mason::from_string(r#"{ "a": null, "b": false }"#).unwrap();
+    /// let v = mason_rs::from_string(r#"{ "a": null, "b": false }"#).unwrap();
     ///
     /// assert_eq!(v["a"].as_null(), Some(()));
     ///
@@ -352,11 +352,11 @@ impl Value {
     /// Takes the value out of the `Value`, leaving a `Null` in its place.
     ///
     /// ```
-    /// # use mason::Value;
+    /// # use mason_rs::Value;
     /// #
-    /// let mut v = mason::from_string(r#"{ "x": "y" }"#).unwrap();
+    /// let mut v = mason_rs::from_string(r#"{ "x": "y" }"#).unwrap();
     /// assert_eq!(v["x"].take(), Value::String("y".into()));
-    /// assert_eq!(v, mason::from_string(r#"{ "x": null }"#).unwrap());
+    /// assert_eq!(v, mason_rs::from_string(r#"{ "x": null }"#).unwrap());
     /// ```
     pub fn take(&mut self) -> Self {
         mem::replace(self, Self::Null)

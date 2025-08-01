@@ -2,7 +2,7 @@ use std::{collections::HashMap, ops};
 
 use crate::Value;
 
-/// A type that can be used to index into a `mason::Value`.
+/// A type that can be used to index into a `mason_rs::Value`.
 ///
 /// The [`get`] and [`get_mut`] methods of `Value` accept any type that
 /// implements `Index`, as does the [square-bracket indexing operator]. This
@@ -19,9 +19,9 @@ use crate::Value;
 /// # Examples
 ///
 /// ```
-/// # use mason::Value;
+/// # use mason_rs::Value;
 /// #
-/// let data = mason::from_string(r#"{ "inner": [1, 2, 3] }"#).unwrap();
+/// let data = mason_rs::from_string(r#"{ "inner": [1, 2, 3] }"#).unwrap();
 ///
 /// // Data is a MASON object so it can be indexed with a string.
 /// let inner = &data["inner"];
@@ -143,7 +143,7 @@ where
 {
     type Output = Self;
 
-    /// Index into a `mason::Value` using the syntax `value[0]` or
+    /// Index into a `mason_rs::Value` using the syntax `value[0]` or
     /// `value["k"]`.
     ///
     /// Returns `Value::Null` if the type of `self` does not match the type of
@@ -153,9 +153,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use mason::Value;
+    /// # use mason_rs::Value;
     /// #
-    /// let data = mason::from_string(r#"{
+    /// let data = mason_rs::from_string(r#"{
     ///     "x": {
     ///         "y": ["z", "zz"]
     ///     }
@@ -183,7 +183,7 @@ impl<I> ops::IndexMut<I> for Value
 where
     I: Index,
 {
-    /// Write into a `mason::Value` using the syntax `value[0] = ...` or
+    /// Write into a `mason_rs::Value` using the syntax `value[0] = ...` or
     /// `value["k"] = ...`.
     ///
     /// If the index is a number, the value must be an array of length bigger
@@ -198,9 +198,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use mason::Value;
+    /// # use mason_rs::Value;
     /// #
-    /// let mut data = mason::from_string(r#"{ "x": 0 }"#).unwrap();
+    /// let mut data = mason_rs::from_string(r#"{ "x": 0 }"#).unwrap();
     ///
     /// // replace an existing key
     /// data["x"] = Value::Number(1.0);

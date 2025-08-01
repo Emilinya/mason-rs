@@ -2,8 +2,12 @@
 name = "mason-rs"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.85"
+description = "a rust implementation of MASON, a JSON-like object notation."
+authors = ["Emilie Dørum <emilid2103@gmail.com>"]
+repository = "https://github.com/Emilinya/mason-rs"
+license = "MIT"
 
 [dev-dependencies]
-serde_json = "1.0.141"
+serde_json = "1.0.142"
 base64 = "0.22.1"

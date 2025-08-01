@@ -30,7 +30,7 @@ pub use value::Value;
 /// fn main() {
 /// # }
 /// # fn fake_main() {
-///     let value = mason::from_reader(File::open("test.mason").unwrap()).unwrap();
+///     let value = mason_rs::from_reader(File::open("test.mason").unwrap()).unwrap();
 ///     println!("{:?}", value);
 /// }
 /// ```
@@ -49,9 +49,9 @@ pub fn from_reader(reader: impl Read) -> io::Result<Value> {
 /// # Example
 ///
 /// ```
-/// # use mason::Value;
+/// # use mason_rs::Value;
 ///
-/// let data = mason::from_bytes(b"[1.0, true, null]").unwrap();
+/// let data = mason_rs::from_bytes(b"[1.0, true, null]").unwrap();
 /// assert_eq!(data, Value::Array(vec![Value::Number(1.0), Value::Bool(true), Value::Null]))
 /// ```
 ///
@@ -67,9 +67,9 @@ pub fn from_bytes(bytes: &[u8]) -> io::Result<Value> {
 /// # Example
 ///
 /// ```
-/// # use mason::Value;
+/// # use mason_rs::Value;
 ///
-/// let data = mason::from_string("[1.0, true, null]").unwrap();
+/// let data = mason_rs::from_string("[1.0, true, null]").unwrap();
 /// assert_eq!(data, Value::Array(vec![Value::Number(1.0), Value::Bool(true), Value::Null]))
 ///
 /// ```
