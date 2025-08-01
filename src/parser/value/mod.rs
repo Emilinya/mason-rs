@@ -1,9 +1,6 @@
-use std::{
-    collections::HashMap,
-    io::{self, Read},
-};
+use std::io::{self, Read};
 
-use crate::{buf_buf_reader::BufBufReader, parser::whitespace::skip_whitespace};
+use crate::{buf_buf_reader::BufBufReader, parser::whitespace::skip_whitespace, value::Value};
 
 mod array;
 mod number;
@@ -14,17 +11,6 @@ use array::parse_array;
 use number::parse_number;
 use object::{parse_identifier, parse_key_value_pairs_after_key, parse_object};
 use string::{parse_byte_string, parse_raw_string, parse_string};
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Value {
-    Object(HashMap<String, Value>),
-    Array(Vec<Value>),
-    String(String),
-    ByteString(Vec<u8>),
-    Number(f64),
-    Bool(bool),
-    Null,
-}
 
 pub fn parse_value<R: Read>(
     reader: &mut BufBufReader<R>,
@@ -103,6 +89,8 @@ pub fn parse_value<R: Read>(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
 
     #[test]

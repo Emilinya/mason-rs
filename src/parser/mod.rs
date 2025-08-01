@@ -4,12 +4,11 @@ use crate::{
     buf_buf_reader::BufBufReader,
     parser::{value::parse_value, whitespace::skip_whitespace},
     utils,
+    value::Value,
 };
 
 mod value;
 mod whitespace;
-
-pub use value::Value;
 
 pub fn parse_document<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<Value> {
     skip_whitespace(reader)?;
