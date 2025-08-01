@@ -58,14 +58,16 @@ pub fn unescape_string(bytes: &[u8]) -> Result<Cow<[u8]>, String> {
                         return Err("Got incomplete hex escape sequence".to_owned());
                     }
 
-                    let mut byte = [0; 1];
-                    match hex::decode_to_slice(&bytes[(i + 2)..=(i + 3)], &mut byte) {
-                        Ok(()) => {
-                            new_bytes.push(byte[0]);
+                    match decode_hex([bytes[i + 2], bytes[i + 3]]) {
+                        Ok(value) => {
+                            new_bytes.push(value);
                             i += 4;
                         }
-                        Err(err) => {
-                            return Err(format!("Failed to decode \\x hex: {err}"));
+                        Err(()) => {
+                            return Err(format!(
+                                "Got invalid \\x hex hex {}",
+                                String::from_utf8_lossy(&bytes[(i + 2)..=(i + 3)])
+                            ));
                         }
                     }
                 }
@@ -74,10 +76,12 @@ pub fn unescape_string(bytes: &[u8]) -> Result<Cow<[u8]>, String> {
                         return Err("Got incomplete unicode escape sequence".to_owned());
                     }
 
-                    let mut decoded_bytes = [0; 2];
-                    match hex::decode_to_slice(&bytes[(i + 2)..=(i + 5)], &mut decoded_bytes) {
-                        Ok(()) => {
-                            let num = u16::from_be_bytes(decoded_bytes);
+                    let byte1 = decode_hex([bytes[i + 2], bytes[i + 3]]);
+                    let byte2 = decode_hex([bytes[i + 4], bytes[i + 5]]);
+
+                    match (byte1, byte2) {
+                        (Ok(byte1), Ok(byte2)) => {
+                            let num = u16::from_be_bytes([byte1, byte2]);
                             let Some(c) = char::from_u32(num.into()) else {
                                 return Err(format!(
                                     "Got invalid unicode code point \\u{} = {num}",
@@ -92,8 +96,11 @@ pub fn unescape_string(bytes: &[u8]) -> Result<Cow<[u8]>, String> {
                             new_bytes.append(&mut c_utf8);
                             i += 6;
                         }
-                        Err(err) => {
-                            return Err(format!("Failed to decode \\u hex: {err}"));
+                        _ => {
+                            return Err(format!(
+                                "Got invalid \\u hex {}",
+                                String::from_utf8_lossy(&bytes[(i + 2)..=(i + 5)])
+                            ));
                         }
                     }
                 }
@@ -102,11 +109,13 @@ pub fn unescape_string(bytes: &[u8]) -> Result<Cow<[u8]>, String> {
                         return Err("Got incomplete non-BMP unicode escape sequence".to_owned());
                     }
 
-                    let mut decoded_bytes = [0; 4];
-                    match hex::decode_to_slice(&bytes[(i + 2)..=(i + 7)], &mut decoded_bytes[1..4])
-                    {
-                        Ok(()) => {
-                            let num = u32::from_be_bytes(decoded_bytes);
+                    let byte1 = decode_hex([bytes[i + 2], bytes[i + 3]]);
+                    let byte2 = decode_hex([bytes[i + 4], bytes[i + 5]]);
+                    let byte3 = decode_hex([bytes[i + 6], bytes[i + 7]]);
+
+                    match (byte1, byte2, byte3) {
+                        (Ok(byte1), Ok(byte2), Ok(byte3)) => {
+                            let num = u32::from_be_bytes([0, byte1, byte2, byte3]);
                             let Some(c) = char::from_u32(num) else {
                                 return Err(format!(
                                     "Got invalid unicode code point \\U{} = {num}",
@@ -121,8 +130,11 @@ pub fn unescape_string(bytes: &[u8]) -> Result<Cow<[u8]>, String> {
                             new_bytes.append(&mut c_utf8);
                             i += 8;
                         }
-                        Err(err) => {
-                            return Err(format!("Failed to decode \\U hex: {err}"));
+                        _ => {
+                            return Err(format!(
+                                "Got invalid \\U hex {}",
+                                String::from_utf8_lossy(&bytes[(i + 2)..=(i + 7)])
+                            ));
                         }
                     }
                 }
@@ -140,6 +152,22 @@ pub fn unescape_string(bytes: &[u8]) -> Result<Cow<[u8]>, String> {
     }
 
     Ok(Cow::Owned(new_bytes))
+}
+
+/// Decode a pair of hex digits into a number.
+fn decode_hex(hex: [u8; 2]) -> Result<u8, ()> {
+    let (high, low) = (hex_to_num(hex[0])?, hex_to_num(hex[1])?);
+    Ok(low | high << 4)
+}
+
+/// Convert a hex digit into a number.
+fn hex_to_num(hex: u8) -> Result<u8, ()> {
+    match utils::to_char(hex) {
+        '0'..='9' => Ok(hex - b'0'),
+        'A'..='F' => Ok(hex - (b'A' - 10)),
+        'a'..='f' => Ok(hex - (b'a' - 10)),
+        _ => Err(()),
+    }
 }
 
 #[cfg(test)]
@@ -165,5 +193,21 @@ mod tests {
             Ok(string) => assert_eq!(String::from_utf8(string.to_vec()).unwrap(), simple_string),
             Err(err) => panic!("unescape_string failed: {err}"),
         }
+    }
+
+    #[test]
+    fn test_decode_hex() {
+        assert_eq!(decode_hex([b'f', b'F']).unwrap(), 255);
+        assert_eq!(decode_hex([b'1', b'2']).unwrap(), 18);
+        assert_eq!(decode_hex([b'c', b'3']).unwrap(), 195);
+        assert!(decode_hex([b'!', b'?']).is_err());
+    }
+
+    #[test]
+    fn test_hex_to_num() {
+        assert_eq!(hex_to_num(b'C').unwrap(), 12);
+        assert_eq!(hex_to_num(b'a').unwrap(), 10);
+        assert_eq!(hex_to_num(b'7').unwrap(), 7);
+        assert!(hex_to_num(b'!').is_err());
     }
 }
