@@ -20,6 +20,13 @@ pub fn from_bytes(bytes: &[u8]) -> io::Result<Value>;
 pub fn from_string(string: &str) -> io::Result<Value>;
 ```
 
+A `Value` can be serialized using 
+```rust
+pub fn write_value<W: Write>(value: &Value, writer: &mut W) -> fmt::Result
+```
+
+See [the documentation](https://docs.rs/mason-rs/latest/mason_rs/) for more info.
+
 ## Running tests
 
 To run tests, run `cargo test` or `make check`.
