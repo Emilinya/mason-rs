@@ -1,10 +1,10 @@
 use std::io::{self, BufRead, Read};
 
-use crate::buf_buf_reader::BufBufReader;
+use crate::peek_reader::PeekReader;
 
-pub fn skip_whitespace<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<()> {
+pub fn skip_whitespace<R: Read>(reader: &mut PeekReader<R>) -> io::Result<()> {
     loop {
-        let Some(next_byte) = reader.peak()? else {
+        let Some(next_byte) = reader.peek()? else {
             // We reached EOF, which means there is no more whitespace to skip
             return Ok(());
         };
@@ -18,7 +18,7 @@ pub fn skip_whitespace<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<()> 
             _ => return Ok(()),
         };
 
-        let Some([_, next_byte]) = reader.peak2()? else {
+        let Some([_, next_byte]) = reader.peek2()? else {
             return Ok(());
         };
 
@@ -47,10 +47,10 @@ pub fn skip_whitespace<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<()> 
     }
 }
 
-pub fn parse_sep<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<bool> {
+pub fn parse_sep<R: Read>(reader: &mut PeekReader<R>) -> io::Result<bool> {
     // parse space
     loop {
-        let Some(next_byte) = reader.peak()? else {
+        let Some(next_byte) = reader.peek()? else {
             return Ok(false);
         };
 
@@ -59,7 +59,7 @@ pub fn parse_sep<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<bool> {
                 reader.consume(1);
             }
             b'/' => {
-                let Some([_, next_byte]) = reader.peak2()? else {
+                let Some([_, next_byte]) = reader.peek2()? else {
                     return Ok(false);
                 };
                 match next_byte {
@@ -92,7 +92,7 @@ pub fn parse_sep<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<bool> {
         }
     }
 
-    let Some(next_bytes) = reader.peak2()? else {
+    let Some(next_bytes) = reader.peek2()? else {
         return Ok(false);
     };
     match &next_bytes {
@@ -123,7 +123,7 @@ mod tests {
             /* this is a block * comment / / ***  */ !olleH
         ";
 
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         skip_whitespace(&mut reader).unwrap();
 
         let mut buf = [0; 6];
@@ -146,7 +146,7 @@ mod tests {
         Fourt Fift? \t
         ";
 
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         skip_whitespace(&mut reader).unwrap();
 
         let mut buf = [0; 5];

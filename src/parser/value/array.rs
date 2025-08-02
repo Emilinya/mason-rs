@@ -2,12 +2,12 @@ use std::io::{self, BufRead, Read};
 
 use super::{Value, parse_value};
 use crate::{
-    buf_buf_reader::BufBufReader,
     parser::whitespace::{parse_sep, skip_whitespace},
+    peek_reader::PeekReader,
     utils,
 };
 
-pub fn parse_array<R: Read>(reader: &mut BufBufReader<R>, depth: u8) -> io::Result<Vec<Value>> {
+pub fn parse_array<R: Read>(reader: &mut PeekReader<R>, depth: u8) -> io::Result<Vec<Value>> {
     let eof_err = io::Error::new(io::ErrorKind::UnexpectedEof, "got EOF while parsing array");
 
     // skip opening brackets and whitespace
@@ -21,7 +21,7 @@ pub fn parse_array<R: Read>(reader: &mut BufBufReader<R>, depth: u8) -> io::Resu
 
     let mut array = Vec::new();
     loop {
-        let Some(next_byte) = reader.peak()? else {
+        let Some(next_byte) = reader.peek()? else {
             return Err(eof_err);
         };
 
@@ -34,7 +34,7 @@ pub fn parse_array<R: Read>(reader: &mut BufBufReader<R>, depth: u8) -> io::Resu
         let valid_sep = parse_sep(reader)?;
         skip_whitespace(reader)?;
 
-        let Some(next_byte) = reader.peak()? else {
+        let Some(next_byte) = reader.peek()? else {
             return Err(eof_err);
         };
         if !valid_sep && next_byte != b']' {
@@ -53,11 +53,11 @@ mod tests {
     #[test]
     fn test_parse_array() {
         let data = "[]";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_array(&mut reader, 100).unwrap(), vec![]);
 
         let data = "[1, 6, false, null]";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(
             parse_array(&mut reader, 100).unwrap(),
             vec![
@@ -74,7 +74,7 @@ mod tests {
         null
         \t\r\n
         ]";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(
             parse_array(&mut reader, 100).unwrap(),
             vec![

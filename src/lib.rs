@@ -1,6 +1,6 @@
-mod buf_buf_reader;
 mod index;
 mod parser;
+mod peek_reader;
 mod unescape_string;
 mod utils;
 mod value;
@@ -10,7 +10,7 @@ mod tests;
 
 use std::io::{self, Read};
 
-use crate::buf_buf_reader::BufBufReader;
+use crate::peek_reader::PeekReader;
 
 pub use value::Value;
 
@@ -40,8 +40,8 @@ pub use value::Value;
 /// This function can fail if the I/O stream is not valid MASON, or if any errors were
 /// encountered while reading from the stream.
 pub fn from_reader(reader: impl Read) -> io::Result<Value> {
-    let mut buf_buf_reader = BufBufReader::new(reader);
-    parser::parse_document(&mut buf_buf_reader)
+    let mut peek_reader = PeekReader::new(reader);
+    parser::parse_document(&mut peek_reader)
 }
 
 /// Deserialize a `Value` from a slice of MASON bytes.

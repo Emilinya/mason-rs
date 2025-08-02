@@ -1,8 +1,8 @@
 use std::io::{self, Read};
 
 use crate::{
-    buf_buf_reader::BufBufReader,
     parser::{value::parse_value, whitespace::skip_whitespace},
+    peek_reader::PeekReader,
     utils,
     value::Value,
 };
@@ -10,11 +10,11 @@ use crate::{
 mod value;
 mod whitespace;
 
-pub fn parse_document<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<Value> {
+pub fn parse_document<R: Read>(reader: &mut PeekReader<R>) -> io::Result<Value> {
     skip_whitespace(reader)?;
     let value = parse_value(reader, 100, true)?;
     skip_whitespace(reader)?;
-    if let Some(garbage) = reader.peak()? {
+    if let Some(garbage) = reader.peek()? {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             format!(

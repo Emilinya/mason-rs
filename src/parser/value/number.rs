@@ -1,12 +1,12 @@
 use std::io::{self, BufRead, Read};
 
-use crate::{buf_buf_reader::BufBufReader, utils};
+use crate::{peek_reader::PeekReader, utils};
 
-pub fn parse_number<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<f64> {
+pub fn parse_number<R: Read>(reader: &mut PeekReader<R>) -> io::Result<f64> {
     let eof_err = io::Error::new(io::ErrorKind::UnexpectedEof, "got EOF while parsing number");
 
     let mut sign = 1.0;
-    match reader.peak()? {
+    match reader.peek()? {
         Some(b'+') => {
             reader.consume(1);
         }
@@ -18,13 +18,13 @@ pub fn parse_number<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<f64> {
         _ => {}
     }
 
-    let Some(first_byte) = reader.peak()? else {
+    let Some(first_byte) = reader.peek()? else {
         return Err(eof_err);
     };
 
     let mut base_data: Option<(f64, Box<dyn Fn(_) -> _>)> = None;
     if first_byte == b'0' {
-        let Some([_, second_byte]) = reader.peak2()? else {
+        let Some([_, second_byte]) = reader.peek2()? else {
             return Ok(0.0);
         };
 
@@ -93,7 +93,7 @@ pub fn parse_number<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<f64> {
         }
 
         loop {
-            match reader.peak()? {
+            match reader.peek()? {
                 Some(b'\'') => {
                     reader.consume(1);
                     continue;
@@ -138,7 +138,7 @@ pub fn parse_number<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<f64> {
                 number_bytes.push(current_byte);
             }
 
-            match reader.peak()? {
+            match reader.peek()? {
                 Some(byte) => current_byte = byte,
                 None => break,
             }
@@ -172,35 +172,35 @@ mod tests {
     #[test]
     fn test_parse_number() {
         let data = "1";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_number(&mut reader).unwrap(), 1.0);
 
         let data = "0";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_number(&mut reader).unwrap(), 0.0);
 
         let data = "++0";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert!(parse_number(&mut reader).is_err());
 
         let data = "-0'6.1'2'45";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_number(&mut reader).unwrap(), -6.1245);
 
         let data = "06.'1245";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert!(parse_number(&mut reader).is_err());
 
         let data = "+1.0'12e-2";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_number(&mut reader).unwrap(), 0.01012);
 
         let data = "-.2E2";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_number(&mut reader).unwrap(), -20.0);
 
         let data = "1.23And then";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_number(&mut reader).unwrap(), 1.23);
         let mut buf = [0; 8];
         reader.read_exact(&mut buf).unwrap();
@@ -210,23 +210,23 @@ mod tests {
     #[test]
     fn test_parse_base() {
         let data = "-0xa'bc''76";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_number(&mut reader).unwrap(), -703606.0);
 
         let data = "0o'110";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert!(parse_number(&mut reader).is_err());
 
         let data = "+0o712";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_number(&mut reader).unwrap(), 458.0);
 
         let data = "0b11'00'11'00";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_number(&mut reader).unwrap(), 204.0);
 
         let data = "0xff, ...";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_number(&mut reader).unwrap(), 255.0);
         let mut buf = [0; 5];
         reader.read_exact(&mut buf).unwrap();

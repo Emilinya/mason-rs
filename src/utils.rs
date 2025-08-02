@@ -1,6 +1,6 @@
 use std::io::{self, BufRead, Read};
 
-use crate::buf_buf_reader::BufBufReader;
+use crate::peek_reader::PeekReader;
 
 pub fn to_char(byte: u8) -> char {
     // Safety: all u8's are valid chars
@@ -9,7 +9,7 @@ pub fn to_char(byte: u8) -> char {
 
 /// Read from `reader` until a not-escaped quote is reached. The final quote is read
 /// but not returned.
-pub fn read_until_unquote<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<Vec<u8>> {
+pub fn read_until_unquote<R: Read>(reader: &mut PeekReader<R>) -> io::Result<Vec<u8>> {
     let mut value = Vec::new();
     let mut buff = Vec::new();
     loop {
@@ -36,7 +36,7 @@ pub fn read_until_unquote<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<V
 /// Read from `reader` until a specified pattern (string of bytes) is reached. The pattern is read
 /// but not returned.
 pub fn read_until_pattern<R: Read>(
-    reader: &mut BufBufReader<R>,
+    reader: &mut PeekReader<R>,
     pattern: &[u8],
 ) -> io::Result<Vec<u8>> {
     if pattern.is_empty() {

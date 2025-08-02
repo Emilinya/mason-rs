@@ -1,20 +1,20 @@
 use std::io::{self, BufRead, BufReader, Read};
 
-/// [`BufReader`] with the ability to peak two bytes.
+/// [`BufReader`] with the ability to peek two bytes. This is
+/// necessary until <https://github.com/rust-lang/rust/issues/128405> is merged.
 #[derive(Debug)]
-pub struct BufBufReader<R: Read> {
+pub struct PeekReader<R: Read> {
     buf_reader: BufReader<R>,
-    /// A secondary buffer in case `peak2` is called,
+    /// A secondary buffer in case `peek2` is called,
     /// but `buf_reader.buffer().len() == 1`. It is not (yet)
     /// possible to fill the buffer before it is empty, so in this
     /// case, we must put the one byte here, empty the buffer, and then
-    /// fill it. This is necessary until
-    /// <https://github.com/rust-lang/rust/issues/128405> is merged.
+    /// fill it again.
     buffer2: Option<u8>,
 }
 
-impl<R: Read> BufBufReader<R> {
-    /// Creates a new `BufBufReader<R>` with a default buffer capacity. The default is currently 8 KiB,
+impl<R: Read> PeekReader<R> {
+    /// Creates a new `PeekReader<R>` with a default buffer capacity. The default is currently 8 KiB,
     /// but may change in the future.
     pub fn new(inner: R) -> Self {
         Self {
@@ -23,7 +23,7 @@ impl<R: Read> BufBufReader<R> {
         }
     }
 
-    /// Creates a new `BufBufReader<R>` with the specified buffer capacity.
+    /// Creates a new `PeekReader<R>` with the specified buffer capacity.
     #[cfg(test)]
     pub fn with_capacity(capacity: usize, inner: R) -> Self {
         Self {
@@ -33,7 +33,7 @@ impl<R: Read> BufBufReader<R> {
     }
 
     /// Read one value without discarding it.  Returns None if EOF is reached.
-    pub fn peak(&mut self) -> io::Result<Option<u8>> {
+    pub fn peek(&mut self) -> io::Result<Option<u8>> {
         if let Some(byte) = self.buffer2 {
             Ok(Some(byte))
         } else if let Some(byte) = self.buf_reader.fill_buf()?.first() {
@@ -44,7 +44,7 @@ impl<R: Read> BufBufReader<R> {
     }
 
     /// Read two values without discarding them.  Returns None if EOF is reached.
-    pub fn peak2(&mut self) -> io::Result<Option<[u8; 2]>> {
+    pub fn peek2(&mut self) -> io::Result<Option<[u8; 2]>> {
         let current_buf = self.buf_reader.fill_buf()?;
         let Some(current_buf_first) = current_buf.first() else {
             return Ok(None);
@@ -84,7 +84,7 @@ impl<R: Read> BufBufReader<R> {
     }
 }
 
-impl<R: Read> Read for BufBufReader<R> {
+impl<R: Read> Read for PeekReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         if buf.is_empty() {
             return Ok(0);
@@ -113,7 +113,7 @@ impl<R: Read> Read for BufBufReader<R> {
     }
 }
 
-impl<R: Read> BufRead for BufBufReader<R> {
+impl<R: Read> BufRead for PeekReader<R> {
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
         self.buf_reader.fill_buf()
     }
@@ -135,38 +135,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_buf_buf_read() {
+    fn test_peek_reader() {
         let data = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let mut reader = BufBufReader::new(data.as_slice());
-        assert_eq!(reader.peak().unwrap(), Some(0));
-        assert_eq!(reader.peak2().unwrap(), Some([0, 1]));
+        let mut reader = PeekReader::new(data.as_slice());
+        assert_eq!(reader.peek().unwrap(), Some(0));
+        assert_eq!(reader.peek2().unwrap(), Some([0, 1]));
 
         assert_eq!(reader.read_byte().unwrap(), Some(0));
-        assert_eq!(reader.peak2().unwrap(), Some([1, 2]));
+        assert_eq!(reader.peek2().unwrap(), Some([1, 2]));
 
         let mut buf = [0, 0, 0];
         reader.read_exact(&mut buf).unwrap();
         assert_eq!(buf, [1, 2, 3]);
-        assert_eq!(reader.peak().unwrap(), Some(4));
-        assert_eq!(reader.peak2().unwrap(), Some([4, 5]));
+        assert_eq!(reader.peek().unwrap(), Some(4));
+        assert_eq!(reader.peek2().unwrap(), Some([4, 5]));
 
         let mut buf = [0, 0, 0, 0, 0];
         reader.read_exact(&mut buf).unwrap();
         assert_eq!(buf, [4, 5, 6, 7, 8]);
-        assert_eq!(reader.peak().unwrap(), Some(9));
-        assert_eq!(reader.peak2().unwrap(), None);
+        assert_eq!(reader.peek().unwrap(), Some(9));
+        assert_eq!(reader.peek2().unwrap(), None);
 
         assert_eq!(reader.read_byte().unwrap(), Some(9));
-        assert_eq!(reader.peak().unwrap(), None);
+        assert_eq!(reader.peek().unwrap(), None);
         assert_eq!(reader.read_byte().unwrap(), None);
     }
 
     #[test]
     fn test_small_buf() {
         let data = vec![9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
-        let mut reader = BufBufReader::with_capacity(3, data.as_slice());
-        assert_eq!(reader.peak().unwrap(), Some(9));
-        assert_eq!(reader.peak2().unwrap(), Some([9, 8]));
+        let mut reader = PeekReader::with_capacity(3, data.as_slice());
+        assert_eq!(reader.peek().unwrap(), Some(9));
+        assert_eq!(reader.peek2().unwrap(), Some([9, 8]));
         assert_eq!(reader.buf_reader.buffer().len(), 3);
 
         let mut buf = [0, 0];
@@ -174,19 +174,19 @@ mod tests {
         assert_eq!(buf, [9, 8]);
         assert_eq!(reader.buf_reader.buffer().len(), 1);
 
-        assert_eq!(reader.peak().unwrap(), Some(7));
+        assert_eq!(reader.peek().unwrap(), Some(7));
         assert!(reader.buffer2.is_none());
-        assert_eq!(reader.peak2().unwrap(), Some([7, 6]));
+        assert_eq!(reader.peek2().unwrap(), Some([7, 6]));
         assert_eq!(reader.buffer2, Some(7));
         assert_eq!(reader.buf_reader.buffer().len(), 3);
 
-        assert_eq!(reader.peak().unwrap(), Some(7));
-        assert_eq!(reader.peak2().unwrap(), Some([7, 6]));
+        assert_eq!(reader.peek().unwrap(), Some(7));
+        assert_eq!(reader.peek2().unwrap(), Some([7, 6]));
         assert_eq!(reader.buffer2, Some(7));
 
         assert_eq!(reader.read_byte().unwrap(), Some(7));
         assert!(reader.buffer2.is_none());
-        assert_eq!(reader.peak2().unwrap(), Some([6, 5]));
+        assert_eq!(reader.peek2().unwrap(), Some([6, 5]));
         assert!(reader.buffer2.is_none());
 
         reader.read_exact(&mut buf).unwrap();

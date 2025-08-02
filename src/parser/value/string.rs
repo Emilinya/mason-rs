@@ -1,8 +1,8 @@
 use std::io::{self, Read};
 
-use crate::{buf_buf_reader::BufBufReader, unescape_string::unescape_string, utils};
+use crate::{peek_reader::PeekReader, unescape_string::unescape_string, utils};
 
-pub fn parse_string<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<String> {
+pub fn parse_string<R: Read>(reader: &mut PeekReader<R>) -> io::Result<String> {
     if reader.read_byte()? != Some(b'"') {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
@@ -27,7 +27,7 @@ pub fn parse_string<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<String>
     })
 }
 
-pub fn parse_raw_string<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<String> {
+pub fn parse_raw_string<R: Read>(reader: &mut PeekReader<R>) -> io::Result<String> {
     if reader.read_byte()? != Some(b'r') {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
@@ -75,7 +75,7 @@ pub fn parse_raw_string<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<Str
     })
 }
 
-pub fn parse_byte_string<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<Vec<u8>> {
+pub fn parse_byte_string<R: Read>(reader: &mut PeekReader<R>) -> io::Result<Vec<u8>> {
     if (reader.read_byte()?, reader.read_byte()?) != (Some(b'b'), Some(b'"')) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
@@ -106,46 +106,46 @@ mod tests {
     #[test]
     fn test_parse_string() {
         let data = r#""This \" string \n is \"\" a string""#;
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(
             parse_string(&mut reader).unwrap(),
             "This \" string \n is \"\" a string"
         );
 
         let data = r#""I am missing an end quote :("#;
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert!(parse_string(&mut reader).is_err());
     }
 
     #[test]
     fn test_parse_byte_string() {
         let data = r#"b"This \" string \n is \"\" a string""#;
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(
             parse_byte_string(&mut reader).unwrap(),
             b"This \" string \n is \"\" a string"
         );
 
         let data = r#"b"I contain an emoji 😮""#;
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert!(parse_byte_string(&mut reader).is_err());
 
         let data = r#"b"I am missing an end quote :("#;
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert!(parse_string(&mut reader).is_err());
     }
 
     #[test]
     fn test_parse_raw_string() {
         let data = r###"r##"This "string" can fit so many #"quotes"# :)"##"###;
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(
             parse_raw_string(&mut reader).unwrap(),
             "This \"string\" can fit so many #\"quotes\"# :)"
         );
 
         let data = r##"r#"I am not closed properly ""##;
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert!(parse_raw_string(&mut reader).is_err());
     }
 }

@@ -5,13 +5,13 @@ use std::{
 
 use super::{Value, parse_value};
 use crate::{
-    buf_buf_reader::BufBufReader,
     parser::whitespace::{parse_sep, skip_whitespace},
+    peek_reader::PeekReader,
     utils,
 };
 
 pub fn parse_object<R: Read>(
-    reader: &mut BufBufReader<R>,
+    reader: &mut PeekReader<R>,
     depth: u8,
 ) -> io::Result<HashMap<String, Value>> {
     // skip opening brackets and whitespace
@@ -23,7 +23,7 @@ pub fn parse_object<R: Read>(
     }
     skip_whitespace(reader)?;
 
-    if reader.peak()? == Some(b'}') {
+    if reader.peek()? == Some(b'}') {
         reader.consume(1);
         return Ok(HashMap::new());
     }
@@ -33,7 +33,7 @@ pub fn parse_object<R: Read>(
 }
 
 pub fn parse_key_value_pairs_after_key<R: Read>(
-    reader: &mut BufBufReader<R>,
+    reader: &mut PeekReader<R>,
     first_key: String,
     depth: u8,
     top_level: bool,
@@ -58,7 +58,7 @@ pub fn parse_key_value_pairs_after_key<R: Read>(
         let valid_sep = parse_sep(reader)?;
         skip_whitespace(reader)?;
 
-        let Some(next_byte) = reader.peak()? else {
+        let Some(next_byte) = reader.peek()? else {
             if top_level {
                 return Ok(object);
             } else {
@@ -80,7 +80,7 @@ pub fn parse_key_value_pairs_after_key<R: Read>(
     }
 }
 
-pub fn parse_identifier<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<String> {
+pub fn parse_identifier<R: Read>(reader: &mut PeekReader<R>) -> io::Result<String> {
     let Some(first_byte) = reader.read_byte()? else {
         return Err(io::Error::new(
             io::ErrorKind::UnexpectedEof,
@@ -110,7 +110,7 @@ pub fn parse_identifier<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<Str
 
         let mut key = vec![c];
         loop {
-            let byte = reader.peak()?;
+            let byte = reader.peek()?;
             if let Some(byte) = byte
                 && (utils::to_char(byte).is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
             {
@@ -124,7 +124,7 @@ pub fn parse_identifier<R: Read>(reader: &mut BufBufReader<R>) -> io::Result<Str
 }
 
 fn parse_key_value_pair<R: Read>(
-    reader: &mut BufBufReader<R>,
+    reader: &mut PeekReader<R>,
     depth: u8,
 ) -> io::Result<(String, Value)> {
     let key = parse_identifier(reader)?;
@@ -163,7 +163,7 @@ mod tests {
     #[test]
     fn test_parse_array() {
         let data = "{}";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_object(&mut reader, 100).unwrap(), HashMap::new());
 
         let map: HashMap<String, Value> = HashMap::from([
@@ -174,7 +174,7 @@ mod tests {
         ]);
 
         let data = "{key1: 1, \" a fancy! key \n\": 6, \"🏳️‍⚧️\": true, key4: null}";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_object(&mut reader, 100).unwrap(), map);
 
         let data = "\
@@ -185,7 +185,7 @@ mod tests {
         key4: null
         \t\r\n
         }";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_object(&mut reader, 100).unwrap(), map);
     }
 }

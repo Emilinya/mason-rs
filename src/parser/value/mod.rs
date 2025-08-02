@@ -1,6 +1,6 @@
 use std::io::{self, Read};
 
-use crate::{buf_buf_reader::BufBufReader, parser::whitespace::skip_whitespace, value::Value};
+use crate::{parser::whitespace::skip_whitespace, peek_reader::PeekReader, value::Value};
 
 mod array;
 mod number;
@@ -13,7 +13,7 @@ use object::{parse_identifier, parse_key_value_pairs_after_key, parse_object};
 use string::{parse_byte_string, parse_raw_string, parse_string};
 
 pub fn parse_value<R: Read>(
-    reader: &mut BufBufReader<R>,
+    reader: &mut PeekReader<R>,
     depth: u8,
     top_level: bool,
 ) -> io::Result<Value> {
@@ -24,7 +24,7 @@ pub fn parse_value<R: Read>(
         ));
     }
 
-    let Some(first_byte) = reader.peak()? else {
+    let Some(first_byte) = reader.peek()? else {
         return Err(io::Error::new(
             io::ErrorKind::UnexpectedEof,
             "Got EOF when parsing value",
@@ -38,7 +38,7 @@ pub fn parse_value<R: Read>(
             let string = parse_string(reader)?;
             if top_level {
                 skip_whitespace(reader)?;
-                if reader.peak()? == Some(b':') {
+                if reader.peek()? == Some(b':') {
                     return Ok(Value::Object(parse_key_value_pairs_after_key(
                         reader, string, depth, true,
                     )?));
@@ -47,14 +47,14 @@ pub fn parse_value<R: Read>(
             return Ok(Value::String(string));
         }
         b'r' => {
-            if let Some([_, second_byte]) = reader.peak2()?
+            if let Some([_, second_byte]) = reader.peek2()?
                 && matches!(second_byte, b'"' | b'#')
             {
                 return Ok(Value::String(parse_raw_string(reader)?));
             }
         }
         b'b' => {
-            if let Some([_, second_byte]) = reader.peak2()?
+            if let Some([_, second_byte]) = reader.peek2()?
                 && matches!(second_byte, b'"')
             {
                 return Ok(Value::ByteString(parse_byte_string(reader)?));
@@ -69,7 +69,7 @@ pub fn parse_value<R: Read>(
         let identifier = parse_identifier(reader)?;
         if top_level {
             skip_whitespace(reader)?;
-            if reader.peak()? == Some(b':') {
+            if reader.peek()? == Some(b':') {
                 return Ok(Value::Object(parse_key_value_pairs_after_key(
                     reader, identifier, depth, true,
                 )?));
@@ -96,21 +96,21 @@ mod tests {
     #[test]
     fn test_parse_value() {
         let data = "1";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(
             parse_value(&mut reader, 100, true).unwrap(),
             Value::Number(1.0)
         );
 
         let data = "false";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(
             parse_value(&mut reader, 100, true).unwrap(),
             Value::Bool(false)
         );
 
         let data = "false: false";
-        let mut reader = BufBufReader::new(data.as_bytes());
+        let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(
             parse_value(&mut reader, 100, true).unwrap(),
             Value::Object(HashMap::from([("false".to_owned(), Value::Bool(false))]))
