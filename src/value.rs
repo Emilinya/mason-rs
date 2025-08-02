@@ -1,6 +1,6 @@
-use std::{collections::HashMap, mem};
+use std::{collections::HashMap, fmt::Display, mem};
 
-use crate::index::Index;
+use crate::{index::Index, serialize::write_value};
 
 /// Represents any valid MASON value.
 #[derive(Debug, Clone, PartialEq)]
@@ -17,6 +17,12 @@ pub enum Value {
 impl Default for Value {
     fn default() -> Self {
         Self::Null
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write_value(self, f)
     }
 }
 

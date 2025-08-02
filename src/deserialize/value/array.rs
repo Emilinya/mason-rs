@@ -2,7 +2,7 @@ use std::io::{self, BufRead, Read};
 
 use super::{Value, parse_value};
 use crate::{
-    parser::whitespace::{parse_sep, skip_whitespace},
+    deserialize::whitespace::{parse_sep, skip_whitespace},
     peek_reader::PeekReader,
     utils,
 };

@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::utils;
+use crate::{hex::decode_hex, utils};
 
 /// Returns a byte string where all escaped characters in the input byte string
 /// are unescaped.
@@ -154,22 +154,6 @@ pub fn unescape_string(bytes: &[u8]) -> Result<Cow<[u8]>, String> {
     Ok(Cow::Owned(new_bytes))
 }
 
-/// Decode a pair of hex digits into a number.
-fn decode_hex(hex: [u8; 2]) -> Result<u8, ()> {
-    let (high, low) = (hex_to_num(hex[0])?, hex_to_num(hex[1])?);
-    Ok(low | high << 4)
-}
-
-/// Convert a hex digit into a number.
-fn hex_to_num(hex: u8) -> Result<u8, ()> {
-    match utils::to_char(hex) {
-        '0'..='9' => Ok(hex - b'0'),
-        'A'..='F' => Ok(hex - (b'A' - 10)),
-        'a'..='f' => Ok(hex - (b'a' - 10)),
-        _ => Err(()),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -193,21 +177,5 @@ mod tests {
             Ok(string) => assert_eq!(String::from_utf8(string.to_vec()).unwrap(), simple_string),
             Err(err) => panic!("unescape_string failed: {err}"),
         }
-    }
-
-    #[test]
-    fn test_decode_hex() {
-        assert_eq!(decode_hex([b'f', b'F']).unwrap(), 255);
-        assert_eq!(decode_hex([b'1', b'2']).unwrap(), 18);
-        assert_eq!(decode_hex([b'c', b'3']).unwrap(), 195);
-        assert!(decode_hex([b'!', b'?']).is_err());
-    }
-
-    #[test]
-    fn test_hex_to_num() {
-        assert_eq!(hex_to_num(b'C').unwrap(), 12);
-        assert_eq!(hex_to_num(b'a').unwrap(), 10);
-        assert_eq!(hex_to_num(b'7').unwrap(), 7);
-        assert!(hex_to_num(b'!').is_err());
     }
 }

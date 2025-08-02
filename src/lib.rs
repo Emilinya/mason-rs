@@ -1,6 +1,8 @@
+mod deserialize;
+mod hex;
 mod index;
-mod parser;
 mod peek_reader;
+mod serialize;
 mod unescape_string;
 mod utils;
 mod value;
@@ -12,9 +14,9 @@ use std::io::{self, Read};
 
 use crate::peek_reader::PeekReader;
 
-pub use value::Value;
+pub use {serialize::write_value, value::Value};
 
-/// Deserialize a `Value` from an I/O stream of MASON.
+/// Deserialize a [`Value`] from an I/O stream of MASON.
 ///
 /// The content of the I/O stream is buffered in memory using a [`std::io::BufReader`].
 ///
@@ -41,10 +43,10 @@ pub use value::Value;
 /// encountered while reading from the stream.
 pub fn from_reader(reader: impl Read) -> io::Result<Value> {
     let mut peek_reader = PeekReader::new(reader);
-    parser::parse_document(&mut peek_reader)
+    deserialize::parse_document(&mut peek_reader)
 }
 
-/// Deserialize a `Value` from a slice of MASON bytes.
+/// Deserialize a [`Value`] from a slice of MASON bytes.
 ///
 /// # Example
 ///
@@ -62,7 +64,7 @@ pub fn from_bytes(bytes: &[u8]) -> io::Result<Value> {
     from_reader(bytes)
 }
 
-/// Deserialize a `Value` from a MASON string.
+/// Deserialize a [`Value`] from a MASON string.
 ///
 /// # Example
 ///

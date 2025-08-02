@@ -1,6 +1,6 @@
 use std::io::{self, Read};
 
-use crate::{parser::whitespace::skip_whitespace, peek_reader::PeekReader, value::Value};
+use crate::{deserialize::whitespace::skip_whitespace, peek_reader::PeekReader, value::Value};
 
 mod array;
 mod number;
@@ -81,7 +81,7 @@ pub fn parse_value<R: Read>(
             "null" => Ok(Value::Null),
             _ => Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
-                "Malformed value: {identifier}",
+                format!("Malformed value: {identifier}"),
             )),
         }
     }

@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 
 use crate::{
-    parser::{value::parse_value, whitespace::skip_whitespace},
+    deserialize::{value::parse_value, whitespace::skip_whitespace},
     peek_reader::PeekReader,
     utils,
     value::Value,
