@@ -47,17 +47,17 @@ pub fn parse_value<R: Read>(
             return Ok(Value::String(string));
         }
         b'r' => {
-            if let Some([_, second_byte]) = reader.peek2()?
-                && matches!(second_byte, b'"' | b'#')
-            {
-                return Ok(Value::String(parse_raw_string(reader)?));
+            if let Some([_, second_byte]) = reader.peek2()? {
+                if matches!(second_byte, b'"' | b'#') {
+                    return Ok(Value::String(parse_raw_string(reader)?));
+                }
             }
         }
         b'b' => {
-            if let Some([_, second_byte]) = reader.peek2()?
-                && matches!(second_byte, b'"')
-            {
-                return Ok(Value::ByteString(parse_byte_string(reader)?));
+            if let Some([_, second_byte]) = reader.peek2()? {
+                if matches!(second_byte, b'"') {
+                    return Ok(Value::ByteString(parse_byte_string(reader)?));
+                }
             }
         }
         _ => {}

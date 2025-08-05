@@ -88,13 +88,7 @@ fn deep_equals(json: &JsonValue, mason: &MasonValue) -> bool {
         (JsonValue::Null, MasonValue::Null) => true,
         (JsonValue::Bool(bool1), MasonValue::Bool(bool2)) => bool1 == bool2,
         (JsonValue::Number(number1), MasonValue::Number(number2)) => {
-            if let Some(number1) = number1.as_f64()
-                && number1 == *number2
-            {
-                true
-            } else {
-                false
-            }
+            number1.as_f64().is_some_and(|number1| number1 == *number2)
         }
         (JsonValue::String(string1), MasonValue::String(string2)) => string1 == string2,
         (JsonValue::String(string1), MasonValue::ByteString(string2)) => {
@@ -161,8 +155,8 @@ fn test_parser() {
             .output()
             .unwrap()
     } else {
-        Command::new("sh")
-            .args(["-c", "cd mason && git pull"])
+        Command::new("git")
+            .args(["-C", "mason", "pull"])
             .output()
             .unwrap()
     };

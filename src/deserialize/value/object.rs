@@ -111,12 +111,12 @@ pub fn parse_identifier<R: Read>(reader: &mut PeekReader<R>) -> io::Result<Strin
         let mut key = vec![c];
         loop {
             let byte = reader.peek()?;
-            if let Some(byte) = byte
-                && (utils::to_char(byte).is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-            {
-                reader.consume(1);
-                key.push(utils::to_char(byte));
-                continue;
+            if let Some(byte) = byte {
+                if utils::to_char(byte).is_ascii_alphanumeric() || matches!(byte, b'_' | b'-') {
+                    reader.consume(1);
+                    key.push(utils::to_char(byte));
+                    continue;
+                }
             }
             return Ok(key.into_iter().collect());
         }

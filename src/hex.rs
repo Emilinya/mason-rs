@@ -3,7 +3,7 @@ use crate::utils;
 /// Decode a pair of hex digits into a number.
 pub fn decode_hex(hex: [u8; 2]) -> Result<u8, ()> {
     let (high, low) = (hex_to_num(hex[0])?, hex_to_num(hex[1])?);
-    Ok(low | high << 4)
+    Ok(low | (high << 4))
 }
 
 /// Encode a number into a pair of hex digits.
