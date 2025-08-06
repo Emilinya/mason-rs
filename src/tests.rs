@@ -151,7 +151,13 @@ fn compare_output(mason_file: &str) -> io::Result<()> {
 fn test_parser() {
     let command = if !fs::exists("mason").unwrap() {
         Command::new("git")
-            .args(["clone", "https://github.com/mortie/mason.git"])
+            .args([
+                "clone",
+                "https://github.com/mortie/mason.git",
+                "-c",
+                // replacing \n with \r\n breaks some tests
+                "core.autocrlf=false",
+            ])
             .output()
             .unwrap()
     } else {
