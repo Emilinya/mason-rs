@@ -5,6 +5,7 @@ use std::{
 
 use super::{Value, parse_value};
 use crate::{
+    deserialize::parse_string,
     deserialize::whitespace::{parse_sep, skip_whitespace},
     peek_reader::PeekReader,
     utils,
@@ -81,7 +82,7 @@ pub fn parse_key_value_pairs_after_key<R: Read>(
 }
 
 pub fn parse_identifier<R: Read>(reader: &mut PeekReader<R>) -> io::Result<String> {
-    let Some(first_byte) = reader.read_byte()? else {
+    let Some(first_byte) = reader.peek()? else {
         return Err(io::Error::new(
             io::ErrorKind::UnexpectedEof,
             "Got EOF when parsing key",
@@ -89,17 +90,9 @@ pub fn parse_identifier<R: Read>(reader: &mut PeekReader<R>) -> io::Result<Strin
     };
 
     if first_byte == b'"' {
-        let byte_key = utils::read_until_unquote(reader)?;
-        String::from_utf8(byte_key).map_err(|err| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!(
-                    "got non-utf8 key: {}",
-                    String::from_utf8_lossy(err.as_bytes())
-                ),
-            )
-        })
+        parse_string(reader)
     } else {
+        reader.consume(1);
         let c = utils::to_char(first_byte);
         if !(c.is_ascii_alphabetic() || c == '_') {
             return Err(io::Error::new(

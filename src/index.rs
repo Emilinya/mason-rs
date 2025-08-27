@@ -20,8 +20,9 @@ use crate::Value;
 ///
 /// ```
 /// # use mason_rs::Value;
+/// # use std::str::FromStr;
 /// #
-/// let data = mason_rs::from_string(r#"{ "inner": [1, 2, 3] }"#).unwrap();
+/// let data = Value::from_str(r#"{ "inner": [1, 2, 3] }"#).unwrap();
 ///
 /// // Data is a MASON object so it can be indexed with a string.
 /// let inner = &data["inner"];
@@ -154,8 +155,10 @@ where
     ///
     /// ```
     /// # use mason_rs::Value;
+    /// # use std::str::FromStr;
     /// #
-    /// let data = mason_rs::from_string(r#"{
+    ///
+    /// let data = Value::from_str(r#"{
     ///     "x": {
     ///         "y": ["z", "zz"]
     ///     }
@@ -199,8 +202,9 @@ where
     ///
     /// ```
     /// # use mason_rs::Value;
+    /// # use std::str::FromStr;
     /// #
-    /// let mut data = mason_rs::from_string(r#"{ "x": 0 }"#).unwrap();
+    /// let mut data = Value::from_str(r#"{ "x": 0 }"#).unwrap();
     ///
     /// // replace an existing key
     /// data["x"] = Value::Number(1.0);

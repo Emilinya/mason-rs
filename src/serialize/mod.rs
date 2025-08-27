@@ -2,32 +2,7 @@ use std::fmt::{self, Write};
 
 use crate::{Value, hex::encode_hex, utils};
 
-/// Serialize a [`Value`] using the given writer.
-///
-/// # Example
-///
-/// ```
-/// let value_string = r#"vec: [1, true, false, null]"#;
-/// let value = mason_rs::from_string(value_string).unwrap();
-///
-/// let mut writer = String::new();
-/// mason_rs::write_value(&value, &mut writer);
-/// assert_eq!(writer, value_string);
-/// ```
-///
-/// This is also the function used by `Value`'s display implementation:
-///
-/// ```
-/// let value_string = r#""some bytes": b"This \b \x0e\t is \x7f bytes!""#;
-/// let value = mason_rs::from_string(value_string).unwrap();
-///
-/// assert_eq!(value.to_string(), value_string);
-/// ```
-pub fn write_value<W: Write>(value: &Value, writer: &mut W) -> fmt::Result {
-    write_indented_value(value, writer, "    ", 0)
-}
-
-fn write_indented_value<W: Write>(
+pub fn write_indented_value<W: Write>(
     value: &Value,
     w: &mut W,
     indentation: &str,
@@ -63,36 +38,54 @@ fn write_indented_value<W: Write>(
             }
             write!(w, "]")
         }
-        Value::ByteString(vec) => {
-            write!(w, "b\"")?;
-            for byte in vec {
-                if *byte > 31 && *byte < 127 {
-                    // byte is normal, add it as char
-                    write!(w, "{}", utils::to_char(*byte))?;
-                } else {
-                    match byte {
-                        b'\t' => write!(w, "\\t")?,
-                        b'\r' => write!(w, "\\r")?,
-                        b'\n' => write!(w, "\\n")?,
-                        0x8 => write!(w, "\\b")?,
-                        0xC => write!(w, "\\f")?,
-                        _ => {
-                            let [first, second] = encode_hex(*byte);
-                            write!(w, "\\x{}{}", utils::to_char(first), utils::to_char(second))?;
-                        }
-                    }
-                }
-            }
-            write!(w, "\"")
-        }
-        Value::String(string) => write!(w, "\"{string}\""),
+        Value::ByteString(vec) => serialize_bytes(w, vec),
+        Value::String(string) => serialize_string(w, string),
         Value::Number(num) => write!(w, "{num}"),
         Value::Bool(b) => write!(w, "{b}"),
         Value::Null => write!(w, "null"),
     }
 }
 
-fn serialize_key<W: Write>(w: &mut W, key: &str) -> fmt::Result {
+pub(crate) fn serialize_bytes<W: Write>(w: &mut W, bytes: &[u8]) -> fmt::Result {
+    write!(w, "b\"")?;
+    for byte in bytes {
+        if *byte > 31 && *byte < 127 {
+            // byte is normal, add it as char
+            write!(w, "{}", utils::to_char(*byte))?;
+        } else {
+            match byte {
+                b'\t' => write!(w, "\\t")?,
+                b'\r' => write!(w, "\\r")?,
+                b'\n' => write!(w, "\\n")?,
+                0x8 => write!(w, "\\b")?,
+                0xC => write!(w, "\\f")?,
+                _ => {
+                    let [first, second] = encode_hex(*byte);
+                    write!(w, "\\x{}{}", utils::to_char(first), utils::to_char(second))?;
+                }
+            }
+        }
+    }
+    write!(w, "\"")
+}
+
+// We must escape quotes and backslashes
+pub(crate) fn serialize_string<W: Write>(w: &mut W, string: &str) -> fmt::Result {
+    if !string.contains(['"', '\\']) {
+        Ok(write!(w, "\"{string}\"")?)
+    } else {
+        let mut v = string;
+        write!(w, "\"")?;
+        while let Some(index) = v.find(['"', '\\']) {
+            write!(w, "{}\\{}", &v[..index], &v[index..=index])?;
+            v = &v[(index + 1)..];
+        }
+        write!(w, "{v}\"")?;
+        Ok(())
+    }
+}
+
+pub(crate) fn serialize_key<W: Write>(w: &mut W, key: &str) -> fmt::Result {
     let mut chars = key.chars();
     let Some(first) = chars.next() else {
         return write!(w, "\"\"");
@@ -103,23 +96,25 @@ fn serialize_key<W: Write>(w: &mut W, key: &str) -> fmt::Result {
     {
         write!(w, "{key}")
     } else {
-        write!(w, "\"{key}\"")
+        serialize_string(w, key)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::from_string;
+    use std::str::FromStr;
+
+    use crate::Value;
 
     #[test]
     fn test_to_string() {
         let string = r#"vec: [1, true, false, null]"#;
-        assert_eq!(from_string(string).unwrap().to_string(), string);
+        assert_eq!(Value::from_str(string).unwrap().to_string(), string);
 
         let string = r#""nice bytes :)": b"This \b \x0e\t is \x7f bytes!""#;
-        assert_eq!(from_string(string).unwrap().to_string(), string);
+        assert_eq!(Value::from_str(string).unwrap().to_string(), string);
 
-        let value = from_string(
+        let value = Value::from_str(
             r#"{
     thing: [1, true, false, null]
     thang: {
@@ -131,7 +126,7 @@ mod tests {
 }"#,
         )
         .unwrap();
-        let same_value = from_string(&value.to_string()).unwrap();
+        let same_value = Value::from_str(&value.to_string()).unwrap();
         assert_eq!(value, same_value);
     }
 }

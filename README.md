@@ -7,22 +7,24 @@ a JSON-like object notation.
 
 ## API
 
-The parsing function has this interface:
-
+MASON data can be deserialized to a Rust data structure using
 ```rust
-pub fn from_reader(reader: impl Read) -> io::Result<Value>;
+pub fn from_reader<'de, T, R>(reader: R) -> Result<T>
+where
+    T: Deserialize<'de>,
+    R: Read + 'de;
 ```
 
 There are also two alternate functions for common use cases:
-
 ```rust
-pub fn from_bytes(bytes: &[u8]) -> io::Result<Value>;
-pub fn from_string(string: &str) -> io::Result<Value>;
+pub fn from_slice<'de, T: Deserialize<'de>>(bytes: &'de [u8]) -> Result<T>;
+
+pub fn from_str<'de, T: Deserialize<'de>>(string: &'de str) -> Result<T>;
 ```
 
-A `Value` can be serialized using 
+A Rust data structure can be serialized to MASON using 
 ```rust
-pub fn write_value<W: Write>(value: &Value, writer: &mut W) -> fmt::Result
+pub fn to_writer<T: Serialize, W: Write>(value: &T, writer: &mut W) -> Result<()>;
 ```
 
 See [the documentation](https://docs.rs/mason-rs/latest/mason_rs/) for more info.

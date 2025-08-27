@@ -13,6 +13,19 @@ use serde_json::Value as JsonValue;
 
 use crate::from_reader;
 
+fn try_run(program: &str, args: &[&str]) {
+    let command = Command::new(program).args(args).output().unwrap();
+    if !command.status.success() {
+        if !command.stdout.is_empty() {
+            eprintln!("{}", String::from_utf8_lossy(&command.stdout));
+        }
+        if !command.stderr.is_empty() {
+            eprintln!("{}", String::from_utf8_lossy(&command.stderr));
+        }
+        panic!("Failed to run {} {}", program, args.join(" "));
+    }
+}
+
 fn run_json_tests(folder: PathBuf) -> (usize, usize) {
     let (mut tests, mut successes) = (0, 0);
 
@@ -25,21 +38,11 @@ fn run_json_tests(folder: PathBuf) -> (usize, usize) {
             eprintln!("{file:?}: Unknown file name prefix");
             continue;
         }
-        let should_succeed = name.starts_with('y');
-        let parse_result = from_reader(File::open(&path).unwrap());
+
+        let json_file = path.to_str().unwrap();
 
         tests += 1;
-        if should_succeed && parse_result.is_err() {
-            eprintln!(
-                "{path:?}: Expected success, but failed: {}\n",
-                parse_result.unwrap_err()
-            );
-        } else if !should_succeed && parse_result.is_ok() {
-            eprintln!(
-                "{path:?}: Expected failure, but succeeded: {:?}\n",
-                parse_result.unwrap()
-            );
-        } else {
+        if check_similarity(json_file, json_file) {
             successes += 1;
         }
     }
@@ -63,24 +66,45 @@ fn run_mason_tests(folder: PathBuf) -> (usize, usize) {
             continue;
         }
 
+        let mason_file = path.to_str().unwrap();
+        let json_file = mason_file.replace(".mason", ".json");
+
         tests += 1;
-        if name.starts_with('y') {
-            if let Err(err) = compare_output(path.to_str().unwrap()) {
-                eprintln!("{path:?}: Expected success, but failed: {err}\n");
-            } else {
-                successes += 1;
-            }
-        } else {
-            #[allow(clippy::collapsible_else_if)]
-            if let Ok(value) = from_reader(File::open(&path).unwrap()) {
-                eprintln!("{path:?}: Expected failure, but succeeded: {value:?}\n");
-            } else {
-                successes += 1;
-            }
+        if check_similarity(mason_file, &json_file) {
+            successes += 1;
         }
     }
 
     (tests, successes)
+}
+
+fn check_similarity(mason_file: &str, json_file: &str) -> bool {
+    let path_buf = PathBuf::from(mason_file);
+    let end = path_buf.file_name().unwrap().to_str().unwrap();
+
+    let mut success = true;
+    if end.starts_with('y') {
+        if let Err(err) = compare_output(mason_file, json_file, false) {
+            eprintln!("{mason_file:?}: Expected success, but failed (without serde): {err}\n");
+            success = false;
+        }
+        if let Err(err) = compare_output(mason_file, json_file, true) {
+            eprintln!("{mason_file:?}: Expected success, but failed (with serde): {err}\n");
+            success = false;
+        }
+    } else {
+        if let Ok(value) = MasonValue::from_reader(File::open(mason_file).unwrap()) {
+            eprintln!(
+                "{mason_file:?}: Expected failure, but succeeded (without serde): {value:?}\n"
+            );
+            success = false;
+        }
+        if let Ok(value) = from_reader::<MasonValue, _>(File::open(mason_file).unwrap()) {
+            eprintln!("{mason_file:?}: Expected failure, but succeeded (with serde): {value:?}\n");
+            success = false;
+        }
+    }
+    success
 }
 
 fn deep_equals(json: &JsonValue, mason: &MasonValue) -> bool {
@@ -131,11 +155,14 @@ fn deep_equals(json: &JsonValue, mason: &MasonValue) -> bool {
     }
 }
 
-fn compare_output(mason_file: &str) -> io::Result<()> {
-    let json_file = mason_file.replace(".mason", ".json");
-
+fn compare_output(mason_file: &str, json_file: &str, use_serde: bool) -> io::Result<()> {
     let json_value: JsonValue = serde_json::from_reader(File::open(json_file).unwrap()).unwrap();
-    let mason_value = from_reader(File::open(mason_file).unwrap())?;
+    let mason_value = if use_serde {
+        from_reader(File::open(mason_file).unwrap())
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?
+    } else {
+        MasonValue::from_reader(File::open(mason_file).unwrap())?
+    };
 
     if deep_equals(&json_value, &mason_value) {
         Ok(())
@@ -149,32 +176,23 @@ fn compare_output(mason_file: &str) -> io::Result<()> {
 
 #[test]
 fn test_parser() {
-    let command = if !fs::exists("mason").unwrap() {
-        Command::new("git")
-            .args([
+    if !fs::exists("mason").unwrap() {
+        try_run(
+            "git",
+            &[
                 "clone",
                 "https://github.com/mortie/mason.git",
                 "-c",
                 // replacing \n with \r\n breaks some tests
                 "core.autocrlf=false",
-            ])
-            .output()
-            .unwrap()
+            ],
+        );
     } else {
-        Command::new("git")
-            .args(["-C", "mason", "pull"])
-            .output()
-            .unwrap()
-    };
-    if !command.status.success() {
-        if !command.stdout.is_empty() {
-            eprintln!("{}", String::from_utf8_lossy(&command.stdout));
-        }
-        if !command.stderr.is_empty() {
-            eprintln!("{}", String::from_utf8_lossy(&command.stderr));
-        }
-        panic!("Failed to download tests");
+        try_run("git", &["-C", "mason", "fetch"]);
     }
+
+    let revision = "0e3c8dd9d92b65ac8a594d7ceb5375dc777805f4";
+    try_run("git", &["-C", "mason", "checkout", revision]);
 
     let (mut total_tests, mut total_successes) = (0, 0);
     #[allow(clippy::single_element_loop)]

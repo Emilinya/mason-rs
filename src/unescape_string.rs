@@ -4,7 +4,7 @@ use crate::{hex::decode_hex, utils};
 
 /// Returns a byte string where all escaped characters in the input byte string
 /// are unescaped.
-pub fn unescape_string(bytes: &[u8]) -> Result<Cow<[u8]>, String> {
+pub fn unescape_string(bytes: &[u8]) -> Result<Cow<'_, [u8]>, String> {
     if !bytes.contains(&b'\\') {
         return Ok(Cow::Borrowed(bytes));
     }

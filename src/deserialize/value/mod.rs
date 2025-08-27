@@ -7,10 +7,10 @@ mod number;
 mod object;
 mod string;
 
-use array::parse_array;
-use number::parse_number;
-use object::{parse_identifier, parse_key_value_pairs_after_key, parse_object};
-use string::{parse_byte_string, parse_raw_string, parse_string};
+pub use array::parse_array;
+pub use number::parse_number;
+pub use object::{parse_identifier, parse_key_value_pairs_after_key, parse_object};
+pub use string::{parse_byte_string, parse_raw_string, parse_string};
 
 pub fn parse_value<R: Read>(
     reader: &mut PeekReader<R>,
