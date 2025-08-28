@@ -1,6 +1,6 @@
 [package]
 name = "mason-rs"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.85.1"
 description = "A rust implementation of MASON, a JSON-like object notation."
