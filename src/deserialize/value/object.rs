@@ -50,13 +50,15 @@ pub fn parse_key_value_pairs_after_key<R: Read>(
     }
     skip_whitespace(reader)?;
 
+    let mut parsed_multi_line_string = reader.peek()? == Some(b'|');
     let first_value = parse_value(reader, depth - 1, false)?;
 
     let mut object = HashMap::new();
     object.insert(first_key, first_value);
 
     loop {
-        let valid_sep = parse_sep(reader)?;
+        let valid_sep = parsed_multi_line_string || parse_sep(reader)?;
+
         skip_whitespace(reader)?;
 
         let Some(next_byte) = reader.peek()? else {
@@ -76,7 +78,9 @@ pub fn parse_key_value_pairs_after_key<R: Read>(
             ));
         }
 
-        let (key, value) = parse_key_value_pair(reader, depth)?;
+        let (key, value, multi_line_string) = parse_key_value_pair(reader, depth)?;
+        parsed_multi_line_string = multi_line_string;
+
         object.insert(key, value);
     }
 }
@@ -119,7 +123,7 @@ pub fn parse_identifier<R: Read>(reader: &mut PeekReader<R>) -> io::Result<Strin
 fn parse_key_value_pair<R: Read>(
     reader: &mut PeekReader<R>,
     depth: u8,
-) -> io::Result<(String, Value)> {
+) -> io::Result<(String, Value, bool)> {
     let key = parse_identifier(reader)?;
 
     // skip whitespace before colon
@@ -144,9 +148,10 @@ fn parse_key_value_pair<R: Read>(
     // skip whitespace after colon
     skip_whitespace(reader)?;
 
+    let parsed_multiline_string = reader.peek()? == Some(b'|');
     let value = parse_value(reader, depth - 1, false)?;
 
-    Ok((key, value))
+    Ok((key, value, parsed_multiline_string))
 }
 
 #[cfg(test)]

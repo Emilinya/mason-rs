@@ -313,7 +313,7 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
                     deserialize::skip_whitespace(&mut self.reader)?;
                     if self.reader.peek()? == Some(b':') {
                         return visitor
-                            .visit_map(CommaSeparated::with_initial_key(self, false, string));
+                            .visit_map(SepSeparated::with_initial_key(self, false, string));
                     }
                 }
                 return string.into_deserializer().deserialize_string(visitor);
@@ -325,6 +325,7 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
                     }
                 }
             }
+            b'|' => return self.deserialize_string(visitor),
             b'b' => {
                 if let Some([_, second_byte]) = self.reader.peek2()? {
                     if matches!(second_byte, b'"') {
@@ -343,7 +344,7 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
                 deserialize::skip_whitespace(&mut self.reader)?;
                 if self.reader.peek()? == Some(b':') {
                     return visitor
-                        .visit_map(CommaSeparated::with_initial_key(self, false, identifier));
+                        .visit_map(SepSeparated::with_initial_key(self, false, identifier));
                 }
             }
             match identifier.as_str() {
@@ -436,6 +437,7 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
         match byte {
             b'"' => visitor.visit_string(deserialize::parse_string(&mut self.reader)?),
             b'r' => visitor.visit_string(deserialize::parse_raw_string(&mut self.reader)?),
+            b'|' => visitor.visit_string(deserialize::parse_multi_line_string(&mut self.reader)?),
             _ => Err(Error::invalid_type(
                 Unexpected::Char(utils::to_char(byte)),
                 &"string",
@@ -520,7 +522,7 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
         let byte = self.expect_read_byte()?;
         if byte == b'[' {
             // Give the visitor access to each element of the sequence.
-            let value = visitor.visit_seq(CommaSeparated::new(self, true))?;
+            let value = visitor.visit_seq(SepSeparated::new(self, true))?;
             // Parse the closing bracket of the sequence.
             let byte = self.expect_read_byte()?;
             if byte == b']' {
@@ -573,7 +575,7 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
             }
 
             self.depth += 1;
-            let value = visitor.visit_map(CommaSeparated::new(self, has_opening_brace))?;
+            let value = visitor.visit_map(SepSeparated::new(self, has_opening_brace))?;
             self.depth -= 1;
 
             match (has_opening_brace, self.reader.peek()? == Some(b'}')) {
@@ -594,7 +596,7 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
         let byte = self.expect_read_byte()?;
         if byte == b'{' {
             self.depth += 1;
-            let value = visitor.visit_map(CommaSeparated::new(self, true))?;
+            let value = visitor.visit_map(SepSeparated::new(self, true))?;
             self.depth -= 1;
 
             let byte = self.expect_read_byte()?;
@@ -672,24 +674,27 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     }
 }
 
-// In order to handle commas correctly when deserializing a MASON array or map,
+// In order to handle seps correctly when deserializing a MASON array or map,
 // we need to track whether we are on the first element or past the first
 // element.
-struct CommaSeparated<'a, R: Read> {
+struct SepSeparated<'a, R: Read> {
     de: &'a mut Deserializer<R>,
     first: bool,
     // should we expect a closing bracket?
     expect_closing: bool,
     first_key: Option<String>,
+    // a multi line string is always a valid sep
+    previously_parsed_multi_line_string: bool,
 }
 
-impl<'a, R: Read> CommaSeparated<'a, R> {
+impl<'a, R: Read> SepSeparated<'a, R> {
     fn new(de: &'a mut Deserializer<R>, expect_closing: bool) -> Self {
-        CommaSeparated {
+        SepSeparated {
             de,
             first: true,
             expect_closing,
             first_key: None,
+            previously_parsed_multi_line_string: false,
         }
     }
 
@@ -698,18 +703,19 @@ impl<'a, R: Read> CommaSeparated<'a, R> {
         expect_closing: bool,
         first_key: String,
     ) -> Self {
-        CommaSeparated {
+        SepSeparated {
             de,
             first: true,
             expect_closing,
             first_key: Some(first_key),
+            previously_parsed_multi_line_string: false,
         }
     }
 }
 
 // `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
 // through elements of the sequence.
-impl<'de, R: Read + 'de> SeqAccess<'de> for CommaSeparated<'_, R> {
+impl<'de, R: Read + 'de> SeqAccess<'de> for SepSeparated<'_, R> {
     type Error = Error;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
@@ -717,7 +723,8 @@ impl<'de, R: Read + 'de> SeqAccess<'de> for CommaSeparated<'_, R> {
         T: DeserializeSeed<'de>,
     {
         if !self.first {
-            let valid_sep = deserialize::parse_sep(&mut self.de.reader)?;
+            let valid_sep = self.previously_parsed_multi_line_string
+                || deserialize::parse_sep(&mut self.de.reader)?;
             deserialize::skip_whitespace(&mut self.de.reader)?;
 
             if !valid_sep {
@@ -739,6 +746,7 @@ impl<'de, R: Read + 'de> SeqAccess<'de> for CommaSeparated<'_, R> {
 
         // Deserialize an array element.
         self.de.depth += 1;
+        self.previously_parsed_multi_line_string = self.de.reader.peek()? == Some(b'|');
         let result = seed.deserialize(&mut *self.de).map(Some);
         self.de.depth -= 1;
 
@@ -748,7 +756,7 @@ impl<'de, R: Read + 'de> SeqAccess<'de> for CommaSeparated<'_, R> {
 
 // `MapAccess` is provided to the `Visitor` to give it the ability to iterate
 // through entries of the map.
-impl<'de, R: Read + 'de> MapAccess<'de> for CommaSeparated<'_, R> {
+impl<'de, R: Read + 'de> MapAccess<'de> for SepSeparated<'_, R> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
@@ -761,7 +769,7 @@ impl<'de, R: Read + 'de> MapAccess<'de> for CommaSeparated<'_, R> {
         }
 
         let valid_sep = if !self.first {
-            deserialize::parse_sep(&mut self.de.reader)?
+            self.previously_parsed_multi_line_string || deserialize::parse_sep(&mut self.de.reader)?
         } else {
             true
         };
@@ -808,6 +816,7 @@ impl<'de, R: Read + 'de> MapAccess<'de> for CommaSeparated<'_, R> {
 
         // Deserialize a map value.
         self.de.depth += 1;
+        self.previously_parsed_multi_line_string = self.de.reader.peek()? == Some(b'|');
         let result = seed.deserialize(&mut *self.de);
         self.de.depth -= 1;
 

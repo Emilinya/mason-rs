@@ -5,7 +5,8 @@ use std::io::{self, Read};
 
 use crate::{deserialize::value::parse_value, peek_reader::PeekReader, utils, value::Value};
 pub(crate) use value::{
-    parse_byte_string, parse_identifier, parse_number, parse_raw_string, parse_string,
+    parse_byte_string, parse_identifier, parse_multi_line_string, parse_number, parse_raw_string,
+    parse_string,
 };
 pub(crate) use whitespace::{parse_sep, skip_whitespace};
 

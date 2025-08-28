@@ -29,9 +29,11 @@ pub fn parse_array<R: Read>(reader: &mut PeekReader<R>, depth: u8) -> io::Result
             reader.consume(1);
             return Ok(array);
         }
+
+        let parsed_multi_line_string = reader.peek()? == Some(b'|');
         array.push(parse_value(reader, depth - 1, false)?);
 
-        let valid_sep = parse_sep(reader)?;
+        let valid_sep = parsed_multi_line_string || parse_sep(reader)?;
         skip_whitespace(reader)?;
 
         let Some(next_byte) = reader.peek()? else {

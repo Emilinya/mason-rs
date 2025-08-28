@@ -1,6 +1,8 @@
-use std::io::{self, Read};
+use std::io::{self, BufRead, Read};
 
-use crate::{peek_reader::PeekReader, unescape_string::unescape_string, utils};
+use crate::{
+    deserialize::skip_whitespace, peek_reader::PeekReader, unescape_string::unescape_string, utils,
+};
 
 pub fn parse_string<R: Read>(reader: &mut PeekReader<R>) -> io::Result<String> {
     if reader.read_byte()? != Some(b'"') {
@@ -88,6 +90,48 @@ pub fn parse_raw_string<R: Read>(reader: &mut PeekReader<R>) -> io::Result<Strin
     })
 }
 
+pub fn parse_multi_line_string<R: Read>(reader: &mut PeekReader<R>) -> io::Result<String> {
+    if reader.read_byte()? != Some(b'|') {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "multi line string did not start with '|'",
+        ));
+    }
+
+    let mut out = String::new();
+    loop {
+        let mut bytes = Vec::new();
+        while let Some(next) = reader.read_byte()? {
+            if next == b'\n' {
+                break;
+            }
+            bytes.push(next);
+        }
+
+        let string = String::from_utf8(bytes).map_err(|err| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "got non-utf8 string: {} (bytes: {:?})",
+                    String::from_utf8_lossy(err.as_bytes()),
+                    err.as_bytes(),
+                ),
+            )
+        })?;
+        out += &string;
+
+        skip_whitespace(reader)?;
+        if reader.peek()? == Some(b'|') {
+            reader.consume(1);
+            out += "\n";
+        } else {
+            break;
+        }
+    }
+
+    Ok(out)
+}
+
 pub fn parse_byte_string<R: Read>(reader: &mut PeekReader<R>) -> io::Result<Vec<u8>> {
     if (reader.read_byte()?, reader.read_byte()?) != (Some(b'b'), Some(b'"')) {
         return Err(io::Error::new(
@@ -97,12 +141,14 @@ pub fn parse_byte_string<R: Read>(reader: &mut PeekReader<R>) -> io::Result<Vec<
     }
 
     let value_bytes = utils::read_until_unquote(reader)?;
-    if let Some(non_ascii) = value_bytes.iter().find(|byte| !byte.is_ascii()) {
+
+    let is_byte_invalid = |byte: &&u8| !byte.is_ascii() || matches!(byte, b'\n' | b'\t');
+    if let Some(invalid_byte) = value_bytes.iter().find(is_byte_invalid) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             format!(
-                "got non-ascii value in byte string: {:?} (bytes: {:?})",
-                utils::to_char(*non_ascii),
+                "got invalid value in byte string: {:?} (bytes: {:?})",
+                utils::to_char(*invalid_byte),
                 value_bytes,
             ),
         ));
@@ -160,5 +206,21 @@ mod tests {
         let data = r##"r#"I am not closed properly ""##;
         let mut reader = PeekReader::new(data.as_bytes());
         assert!(parse_raw_string(&mut reader).is_err());
+    }
+
+    #[test]
+    fn test_parse_multi_line_string() {
+        let data = "\
+            |#include <stdio.h>
+            |
+            |int main() {
+            |    printf(\"Hello World\\n\");
+            |    return 0;
+            |}";
+        let mut reader = PeekReader::new(data.as_bytes());
+        assert_eq!(
+            parse_multi_line_string(&mut reader).unwrap(),
+            "#include <stdio.h>\n\nint main() {\n    printf(\"Hello World\\n\");\n    return 0;\n}"
+        );
     }
 }

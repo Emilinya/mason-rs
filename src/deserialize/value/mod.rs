@@ -10,7 +10,7 @@ mod string;
 pub use array::parse_array;
 pub use number::parse_number;
 pub use object::{parse_identifier, parse_key_value_pairs_after_key, parse_object};
-pub use string::{parse_byte_string, parse_raw_string, parse_string};
+pub use string::{parse_byte_string, parse_multi_line_string, parse_raw_string, parse_string};
 
 pub fn parse_value<R: Read>(
     reader: &mut PeekReader<R>,
@@ -52,6 +52,9 @@ pub fn parse_value<R: Read>(
                     return Ok(Value::String(parse_raw_string(reader)?));
                 }
             }
+        }
+        b'|' => {
+            return Ok(Value::String(parse_multi_line_string(reader)?));
         }
         b'b' => {
             if let Some([_, second_byte]) = reader.peek2()? {
