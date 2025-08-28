@@ -11,6 +11,19 @@ pub fn parse_string<R: Read>(reader: &mut PeekReader<R>) -> io::Result<String> {
     }
 
     let value_bytes = utils::read_until_unquote(reader)?;
+
+    let is_byte_invalid = |byte: &&u8| matches!(byte, b'\n' | b'\t' | b'\0');
+    if let Some(invalid_byte) = value_bytes.iter().find(is_byte_invalid) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "got invalid value in string: {:?} (string: {:?})",
+                utils::to_char(*invalid_byte),
+                String::from_utf8_lossy(&value_bytes),
+            ),
+        ));
+    }
+
     let unescaped_bytes = unescape_string(&value_bytes)
         .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?
         .to_vec();

@@ -191,7 +191,7 @@ fn test_parser() {
         try_run("git", &["-C", "mason", "fetch"]);
     }
 
-    let revision = "0e3c8dd9d92b65ac8a594d7ceb5375dc777805f4";
+    let revision = "3ac297d9f8bbe49a2909d533c9d438c49b2f143c";
     try_run("git", &["-C", "mason", "checkout", revision]);
 
     let (mut total_tests, mut total_successes) = (0, 0);

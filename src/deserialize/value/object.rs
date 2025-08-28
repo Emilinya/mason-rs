@@ -154,25 +154,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_array() {
+    fn test_parse_object() {
         let data = "{}";
         let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_object(&mut reader, 100).unwrap(), HashMap::new());
 
         let map: HashMap<String, Value> = HashMap::from([
             ("key1".to_owned(), Value::Number(1.0)),
-            (" a fancy! key \n".to_owned(), Value::Number(6.0)),
+            (" a fancy! key \r".to_owned(), Value::Number(6.0)),
             ("🏳️‍⚧️".to_owned(), Value::Bool(true)),
             ("key4".to_owned(), Value::Null),
         ]);
 
-        let data = "{key1: 1, \" a fancy! key \n\": 6, \"🏳️‍⚧️\": true, key4: null}";
+        let data = "{key1: 1, \" a fancy! key \r\": 6, \"🏳️‍⚧️\": true, key4: null}";
         let mut reader = PeekReader::new(data.as_bytes());
         assert_eq!(parse_object(&mut reader, 100).unwrap(), map);
 
         let data = "\
         {/* hey :)*/ key1:   \t 1 // so true
-        \t \" a fancy! key \n\"  : /*
+        \t \" a fancy! key \r\"  : /*
         so
         here is a comment */ 6 /* hi :)*/ , \t \"🏳️‍⚧️\" \t  : true  ,   
         key4: null
