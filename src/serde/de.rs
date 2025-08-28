@@ -142,7 +142,6 @@ where
     T: Deserialize<'de>,
     R: Read + 'de,
 {
-    eprintln!();
     let mut deserializer = Deserializer::from_reader(reader);
     let t = T::deserialize(&mut deserializer)?;
     deserialize::skip_whitespace(&mut deserializer.reader)?;
@@ -274,7 +273,6 @@ macro_rules! deserialize_integer {
             where
                 V: Visitor<'de>,
             {
-                eprintln!(concat!("deserialize_", stringify!($type)));
                 let num = $crate::deserialize::parse_number(&mut self.reader)?;
                 if num.fract() != 0.0 || num >  $type::MAX as f64 || num <  $type::MIN as f64 {
                     Err(Error::invalid_type(
@@ -303,11 +301,9 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
             return Err(Error::custom("reached maximum depth"));
         }
 
-        eprintln!("deserialize_any, depth={}", self.depth);
         deserialize::skip_whitespace(&mut self.reader)?;
 
         let first_byte = self.expect_peek()?;
-        eprintln!("{}", utils::to_char(first_byte));
         match first_byte {
             b'{' => return self.deserialize_map(visitor),
             b'[' => return self.deserialize_seq(visitor),
@@ -363,7 +359,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_bool");
         let expected: &[u8] = if self.expect_peek()? == b't' {
             b"true"
         } else {
@@ -395,7 +390,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_f32");
         let num = deserialize::parse_number(&mut self.reader)?;
         let num_f32 = num as f32;
 
@@ -411,7 +405,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_f64");
         visitor.visit_f64(deserialize::parse_number(&mut self.reader)?)
     }
 
@@ -419,7 +412,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_char");
         let string = deserialize::parse_string(&mut self.reader)?;
         let mut chars = string.chars();
         match (chars.next(), chars.next()) {
@@ -433,7 +425,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_str");
         self.deserialize_string(visitor)
     }
 
@@ -441,7 +432,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_string");
         let byte = self.expect_peek()?;
         match byte {
             b'"' => visitor.visit_string(deserialize::parse_string(&mut self.reader)?),
@@ -458,7 +448,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_bytes");
         self.deserialize_byte_buf(visitor)
     }
 
@@ -466,7 +455,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_byte_buf");
         visitor.visit_byte_buf(deserialize::parse_byte_string(&mut self.reader)?)
     }
 
@@ -476,7 +464,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_option");
         // TODO: the first two bytes being 'nu' does not actually guarantee
         // that the value is 'null'
         if &self.expect_peek2()? == b"nu" {
@@ -492,7 +479,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_unit");
         for b in b"null" {
             let byte = self.expect_read_byte()?;
             if byte != *b {
@@ -510,7 +496,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_unit_struct");
         self.deserialize_unit(visitor)
     }
 
@@ -521,7 +506,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_newtype_struct");
         visitor.visit_newtype_struct(self)
     }
 
@@ -532,7 +516,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_seq");
         // Parse the opening bracket of the sequence.
         let byte = self.expect_read_byte()?;
         if byte == b'[' {
@@ -561,7 +544,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_tuple");
         self.deserialize_seq(visitor)
     }
 
@@ -575,7 +557,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_tuple_struct");
         self.deserialize_seq(visitor)
     }
 
@@ -583,7 +564,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_map");
         if self.depth == 0 {
             // If depth is 0, struct does not need to be surrounded by braces
             let mut has_opening_brace = false;
@@ -644,7 +624,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_struct");
         self.deserialize_map(visitor)
     }
 
@@ -657,7 +636,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_enum");
         let variant = deserialize::parse_identifier(&mut self.reader)?;
         deserialize::skip_whitespace(&mut self.reader)?;
 
@@ -683,7 +661,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_identifier");
         visitor.visit_string(deserialize::parse_identifier(&mut self.reader)?)
     }
 
@@ -691,7 +668,6 @@ impl<'de, R: Read + 'de> de::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("deserialize_ignored_any");
         self.deserialize_any(visitor)
     }
 }
@@ -740,10 +716,6 @@ impl<'de, R: Read + 'de> SeqAccess<'de> for CommaSeparated<'_, R> {
     where
         T: DeserializeSeed<'de>,
     {
-        if let Ok(Some([c1, c2])) = self.de.reader.peek2() {
-            eprintln!("{:?}", (utils::to_char(c1), utils::to_char(c2)));
-        }
-
         if !self.first {
             let valid_sep = deserialize::parse_sep(&mut self.de.reader)?;
             deserialize::skip_whitespace(&mut self.de.reader)?;
@@ -870,7 +842,6 @@ impl<'de, R: Read + 'de> EnumAccess<'de> for Enum<'_, R> {
     where
         V: DeserializeSeed<'de>,
     {
-        eprintln!("variant_seed");
         // We have already parsed the enum varian, so we don't need to do anything here
         let Some(variant) = self.variant.take() else {
             return Err(Error::custom("variant_seed got called more than once?"));
@@ -900,7 +871,6 @@ impl<'de, R: Read + 'de> VariantAccess<'de> for Enum<'_, R> {
     where
         T: DeserializeSeed<'de>,
     {
-        eprintln!("newtype_variant_seed");
         seed.deserialize(self.de)
     }
 
@@ -910,7 +880,6 @@ impl<'de, R: Read + 'de> VariantAccess<'de> for Enum<'_, R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("tuple_variant");
         de::Deserializer::deserialize_seq(self.de, visitor)
     }
 
@@ -920,7 +889,6 @@ impl<'de, R: Read + 'de> VariantAccess<'de> for Enum<'_, R> {
     where
         V: Visitor<'de>,
     {
-        eprintln!("struct_variant");
         de::Deserializer::deserialize_map(self.de, visitor)
     }
 }
